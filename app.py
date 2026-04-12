@@ -983,3 +983,6 @@ def logout():
     session.pop('user', None)
     session.pop('view_only', None)
     return redirect('/login')
+
+if __name__ == "__main__":
+    app.run(debug=True)
