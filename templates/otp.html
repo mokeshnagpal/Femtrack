@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Verify OTP - Femtrack{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white text-center">
+                <h4><i class="fas fa-key"></i> Verify OTP</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-center">OTP sent to <strong>{{ email }}</strong></p>
+                
+                {% if debug_otp %}
+                <div class="alert alert-info">
+                    <h6 class="alert-heading"><i class="fas fa-flask"></i> Testing Mode</h6>
+                    <p class="mb-2">Your OTP is:</p>
+                    <div class="bg-light p-3 text-center rounded">
+                        <h4 class="mb-0"><code>{{ debug_otp }}</code></h4>
+                    </div>
+                    {% if email_sent %}
+                    <hr class="my-2">
+                    <small>Email was also sent to your inbox. Check spam folder if not found.</small>
+                    {% else %}
+                    <hr class="my-2">
+                    <small>Note: Email delivery failed. Use OTP shown above to test.</small>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <form method="POST" action="/verify-otp">
+                    <input type="hidden" name="email" value="{{ email }}">
+                    {% if debug_otp %}
+                    <input type="hidden" name="debug_otp" value="{{ debug_otp }}">
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <label for="otp" class="form-label">Enter OTP</label>
+                        <input type="text" class="form-control form-control-lg text-center" 
+                               id="otp" name="otp" maxlength="6" placeholder="000000" required 
+                               pattern="[0-9]{6}" title="OTP must be 6 digits">
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-info btn-lg">
+                            <i class="fas fa-check-circle"></i> Verify OTP
+                        </button>
+                    </div>
+                </form>
+
+                <div class="text-center mt-3">
+                    <small class="text-muted"><i class="fas fa-clock"></i> OTP expires in 5 minutes</small>
+                </div>
+                
+                <hr>
+                
+                <div class="text-center">
+                    <small><a href="/signup">Back to Sign Up</a></small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

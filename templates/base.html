@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Femtrack{% endblock %}</title>
+    <link rel="icon" href="{{ url_for('static', filename='logo/favicon.ico') }}" type="image/x-icon">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='logo/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='logo/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='logo/favicon-16x16.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='logo/site.webmanifest') }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+    <style>
+        /* Mobile navbar overlay fix */
+        @media (max-width: 767.98px) {
+            .navbar-collapse {
+                position: fixed !important;
+                top: 56px;
+                left: 0;
+                right: 0;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                z-index: 1000;
+                max-height: calc(100vh - 56px);
+                overflow-y: auto;
+            }
+            
+            .navbar-collapse.show {
+                display: block !important;
+            }
+            
+            .navbar-collapse.collapse:not(.show) {
+                display: none;
+            }
+            
+            .navbar-toggler {
+                z-index: 1001;
+            }
+            
+            /* Ensure all nav items have consistent gradient background */
+            .navbar-collapse .nav-link,
+            .navbar-collapse .btn {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                color: white !important;
+                border: none !important;
+                padding: 0.75rem 1rem !important;
+                width: 100% !important;
+                text-align: left !important;
+                border-radius: 0 !important;
+                margin-bottom: 2px !important;
+            }
+            
+            .navbar-collapse .nav-link:hover,
+            .navbar-collapse .btn:hover {
+                background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%) !important;
+                color: white !important;
+                transform: none !important;
+            }
+            
+            .navbar-collapse .btn-outline-light {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                border-color: rgba(255, 255, 255, 0.5) !important;
+            }
+            
+            .navbar-collapse .btn-outline-light:hover {
+                background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%) !important;
+                border-color: white !important;
+            }
+            
+            /* Theme toggle button in mobile */
+            .navbar-collapse #themeToggle {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                border: none !important;
+                margin-bottom: 2px !important;
+            }
+            
+            .navbar-collapse #themeToggle:hover {
+                background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%) !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-md navbar-dark bg-primary sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <img src="{{ url_for('static', filename='logo/femtrack_logo.png') }}" alt="Femtrack" style="height: 30px; margin-right: 10px;" onerror="this.style.display='none'">
+                <i class="fas fa-lotus"></i> Femtrack
+            </a>
+            {% if session.user or session.get('view_only') %}
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    {% if session.user %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/input"><i class="fas fa-plus"></i> New Entry</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/entries"><i class="fas fa-list"></i> All Entries</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/analytics"><i class="fas fa-chart-line"></i> Analytics</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/predictor"><i class="fas fa-star"></i> Cycle Predictor</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/customize"><i class="fas fa-sliders-h"></i> Customize</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/settings"><i class="fas fa-cog"></i> Settings</a>
+                    </li>
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <button class="btn nav-btn me-2" id="themeToggle" title="Toggle dark/light mode" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                    </li>
+                </ul>
+            </div>
+            {% else %}
+            <button class="btn nav-btn" id="themeToggle" title="Toggle dark/light mode" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);">
+                <i class="fas fa-moon"></i>
+            </button>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="container-fluid main-container">
+        <div class="container mt-4">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-info alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <footer class="bg-primary text-white text-center py-3 mt-5">
+        <div class="container">
+            <p class="mb-0">&copy; 2026 Femtrack. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/error-handler.js') }}"></script>
+    <script>
+        // Dark/Light mode toggle
+        const themeToggle = document.getElementById('themeToggle');
+        const htmlElement = document.documentElement;
+        
+        // Load saved theme preference
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        htmlElement.setAttribute('data-bs-theme', savedTheme);
+        updateThemeIcon();
+        
+        // Theme toggle handler
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = htmlElement.getAttribute('data-bs-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            htmlElement.setAttribute('data-bs-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon();
+        });
+        
+        function updateThemeIcon() {
+            const theme = htmlElement.getAttribute('data-bs-theme');
+            themeToggle.innerHTML = theme === 'light' 
+                ? '<i class="fas fa-moon"></i>' 
+                : '<i class="fas fa-sun"></i>';
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

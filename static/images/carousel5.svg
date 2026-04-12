@@ -1,0 +1,66 @@
+<svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#11998e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#38ef7d;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="500" fill="url(#grad5)"/>
+  
+  <!-- Cycle calendar illustration on left -->
+  <g transform="translate(120, 160)">
+    <rect x="0" y="0" width="220" height="200" rx="12" fill="white" opacity="0.95" stroke="white" stroke-width="2"/>
+    <rect x="0" y="0" width="220" height="40" fill="#38ef7d" rx="12"/>
+    <text x="110" y="28" font-size="16" font-weight="bold" text-anchor="middle" fill="white">April 2026</text>
+    
+    <!-- Calendar grid -->
+    <g opacity="0.7">
+      <circle cx="20" cy="70" r="8" fill="#11998e"/>
+      <circle cx="60" cy="70" r="8" fill="#11998e"/>
+      <circle cx="100" cy="70" r="8" fill="#f5576c"/>
+      <circle cx="140" cy="70" r="8" fill="#f5576c"/>
+      <circle cx="180" cy="70" r="8" fill="#11998e"/>
+      
+      <circle cx="20" cy="110" r="8" fill="#11998e"/>
+      <circle cx="60" cy="110" r="8" fill="#667eea"/>
+      <circle cx="100" cy="110" r="8" fill="#f5576c"/>
+      <circle cx="140" cy="110" r="8" fill="#667eea"/>
+      <circle cx="180" cy="110" r="8" fill="#11998e"/>
+      
+      <circle cx="20" cy="150" r="8" fill="#667eea"/>
+      <circle cx="60" cy="150" r="8" fill="#667eea"/>
+      <circle cx="100" cy="150" r="8" fill="#f5576c"/>
+      <circle cx="140" cy="150" r="8" fill="#667eea"/>
+    </g>
+  </g>
+  
+  <!-- Wellbeing indicators on right -->
+  <g transform="translate(900, 160)">
+    <g transform="translate(0, 0)">
+      <rect x="0" y="0" width="100" height="100" rx="8" fill="rgba(255,255,255,0.2)" stroke="white" stroke-width="2"/>
+      <text x="50" y="55" font-size="48" text-anchor="middle" fill="white">🌸</text>
+    </g>
+    <g transform="translate(120, 0)">
+      <rect x="0" y="0" width="100" height="100" rx="8" fill="rgba(255,255,255,0.2)" stroke="white" stroke-width="2"/>
+      <text x="50" y="55" font-size="48" text-anchor="middle" fill="white">💪</text>
+    </g>
+    <g transform="translate(0, 120)">
+      <rect x="0" y="0" width="100" height="100" rx="8" fill="rgba(255,255,255,0.2)" stroke="white" stroke-width="2"/>
+      <text x="50" y="55" font-size="48" text-anchor="middle" fill="white">😊</text>
+    </g>
+    <g transform="translate(120, 120)">
+      <rect x="0" y="0" width="100" height="100" rx="8" fill="rgba(255,255,255,0.2)" stroke="white" stroke-width="2"/>
+      <text x="50" y="55" font-size="48" text-anchor="middle" fill="white">🎯</text>
+    </g>
+  </g>
+  
+  <text x="600" y="80" font-size="64" font-weight="bold" text-anchor="middle" fill="white" font-family="Arial">
+    Femtrack
+  </text>
+  <text x="600" y="140" font-size="28" text-anchor="middle" fill="rgba(255,255,255,0.95)" font-family="Arial">
+    Your Personal Cycle Companion
+  </text>
+  <text x="600" y="180" font-size="20" text-anchor="middle" fill="rgba(255,255,255,0.9)" font-family="Arial">
+    Understand. Track. Empower. Thrive.
+  </text>
+</svg>

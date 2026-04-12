@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Femtrack{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-5 col-lg-6 col-md-8 col-sm-10">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white text-center">
+                <h4 class="mb-0"><i class="fas fa-sign-in-alt"></i> User Login</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-center text-muted mb-4">
+                    <small>Only authorized users can access. Login to your account to track and manage your menstrual cycle</small>
+                </p>
+                <form method="POST" action="/login">
+                    <div class="mb-3">
+                        <label for="email" class="form-label">
+                            <i class="fas fa-envelope"></i> Email Address
+                        </label>
+                        <input type="email" class="form-control form-control-lg" id="email" name="email" required
+                               placeholder="Enter your email address">
+                    </div>
+                    <div class="mb-4">
+                        <label for="password" class="form-label">
+                            <i class="fas fa-lock"></i> Password
+                        </label>
+                        <input type="password" class="form-control form-control-lg" id="password" name="password" required
+                               placeholder="Enter your password">
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg fw-bold">
+                            <i class="fas fa-sign-in-alt"></i> Login to My Account
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer bg-light text-center py-3">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle"></i> Don't have an account? 
+                    <strong>Create one on your first login</strong>
+                </small>
+            </div>
+        </div>
+
+        <!-- View Only Link -->
+        <div class="text-center mt-4">
+            <p class="text-muted mb-2">Want to view analytics without logging in?</p>
+            <a href="/view-analytics-login" class="btn btn-outline-info btn-sm">
+                <i class="fas fa-chart-line"></i> Login as View Only
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

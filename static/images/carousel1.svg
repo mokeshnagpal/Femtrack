@@ -1,0 +1,38 @@
+<svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="skinGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fdbcb4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f5a88b;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="500" fill="url(#grad1)"/>
+  
+  <!-- Calendar icon on left -->
+  <g transform="translate(150, 280)">
+    <rect x="0" y="0" width="120" height="140" rx="8" fill="white" opacity="0.95"/>
+    <rect x="0" y="0" width="120" height="35" fill="#f5576c" rx="8"/>
+    <circle cx="30" cy="80" r="12" fill="#667eea"/>
+    <circle cx="90" cy="80" r="12" fill="#667eea"/>
+    <circle cx="30" cy="120" r="12" fill="#667eea"/>
+    <circle cx="90" cy="120" r="12" fill="#667eea"/>
+  </g>
+  
+  <!-- Woman silhouette on right -->
+  <g transform="translate(950, 220)">
+    <circle cx="50" cy="30" r="28" fill="white" opacity="0.9"/>
+    <path d="M 25 65 Q 25 55 50 55 Q 75 55 75 65 L 75 120 Q 75 130 65 140 L 35 140 Q 25 130 25 120 Z" fill="white" opacity="0.9"/>
+    <path d="M 20 80 Q 5 90 5 110" stroke="white" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.9"/>
+    <path d="M 80 80 Q 95 90 95 110" stroke="white" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.9"/>
+  </g>
+  
+  <text x="600" y="100" font-size="64" font-weight="bold" text-anchor="middle" fill="white" font-family="Arial">
+    Track Your Cycle
+  </text>
+  <text x="600" y="180" font-size="32" text-anchor="middle" fill="rgba(255,255,255,0.95)" font-family="Arial">
+    Understanding your body, one day at a time
+  </text>
+</svg>

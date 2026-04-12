@@ -1,0 +1,629 @@
+{% extends "base.html" %}
+
+{% block title %}{% if entry_to_edit %}Edit Entry - Femtrack{% else %}Add Entry - Femtrack{% endif %}{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if we're editing an entry
+    {% if entry_to_edit %}
+    const entryData = {{ entry_to_edit|tojson|safe }};
+    
+    // Set date from entry data
+    document.getElementById('date').value = entryData.date;
+    
+    // Set notes
+    if (entryData.notes) {
+        document.getElementById('notes').value = entryData.notes;
+    }
+    
+    // Populate symptoms from entry data
+    if (entryData.symptoms) {
+        entryData.symptoms.forEach(function(symptom) {
+            if (symptom.name === 'period') {
+                document.getElementById('period').checked = true;
+                if (symptom.flow_amount) {
+                    document.getElementById('flowAmount').value = symptom.flow_amount;
+                    document.getElementById('flowValue').textContent = symptom.flow_amount;
+                }
+                if (symptom.start_marked) {
+                    document.getElementById('periodStart').checked = true;
+                    document.getElementById('startTimeSection').classList.remove('d-none');
+                }
+                if (symptom.end_marked) {
+                    document.getElementById('periodEnd').checked = true;
+                    document.getElementById('endTimeSection').classList.remove('d-none');
+                }
+                if (symptom.start_time) {
+                    document.getElementById('startTime').value = symptom.start_time;
+                }
+                if (symptom.end_time) {
+                    document.getElementById('endTime').value = symptom.end_time;
+                }
+                document.getElementById('periodSection').classList.remove('d-none');
+            } else if (symptom.name === 'weird') {
+                document.getElementById('weird').checked = true;
+                if (symptom.intensity) {
+                    document.getElementById('weirdIntensity').value = symptom.intensity;
+                }
+                document.getElementById('weirdSection').classList.remove('d-none');
+            } else if (symptom.name === 'craving') {
+                document.getElementById('craving').checked = true;
+                if (symptom.intensity) {
+                    document.getElementById('cravingIntensity').value = symptom.intensity;
+                }
+                document.getElementById('cravingSection').classList.remove('d-none');
+            } else if (symptom.name === 'irritation') {
+                document.getElementById('irritation').checked = true;
+                if (symptom.intensity) {
+                    document.getElementById('irritationIntensity').value = symptom.intensity;
+                }
+                document.getElementById('irritationSection').classList.remove('d-none');
+            } else if (symptom.name === 'joint_pain') {
+                const elem = document.getElementById('joint_pain');
+                if (elem) {
+                    elem.checked = true;
+                    if (symptom.intensity) {
+                        document.getElementById('jointPainIntensity').value = symptom.intensity;
+                    }
+                    document.getElementById('jointPainSection').classList.remove('d-none');
+                }
+            } else if (symptom.name === 'diarrhea') {
+                const elem = document.getElementById('diarrhea');
+                if (elem) {
+                    elem.checked = true;
+                    document.getElementById('diarrheaSection').classList.remove('d-none');
+                }
+            }
+        });
+    }
+    {% else %}
+    // Set date to today by default (for new entries)
+    document.getElementById('date').valueAsDate = new Date();
+    {% endif %}
+    
+    // Symptom checkboxes
+    const periodCheckbox = document.getElementById('period_track');
+    const weirdCheckbox = document.getElementById('weird');
+    const cravingCheckbox = document.getElementById('craving');
+    const irritationCheckbox = document.getElementById('irritation');
+    const jointPainCheckbox = document.getElementById('joint_pain');
+    const diarrheaCheckbox = document.getElementById('diarrhea');
+    
+    const periodSection = document.getElementById('periodDetailsSection');
+    const weirdSection = document.getElementById('weirdSection');
+    const cravingSection = document.getElementById('cravingSection');
+    const irritationSection = document.getElementById('irritationSection');
+    const jointPainSection = document.getElementById('jointPainSection');
+    const diarrheaSection = document.getElementById('diarrheaSection');
+    
+    const periodStartCheckbox = document.getElementById('periodStart');
+    const periodEndCheckbox = document.getElementById('periodEnd');
+    const startTimeSection = document.getElementById('startTimeSection');
+    const endTimeSection = document.getElementById('endTimeSection');
+    
+    // Toggle period section
+    periodCheckbox.addEventListener('change', function() {
+        periodSection.classList.toggle('d-none', !this.checked);
+        if (!this.checked) {
+            document.getElementById('flowAmount').value = '5';
+            periodStartCheckbox.checked = false;
+            periodEndCheckbox.checked = false;
+            startTimeSection.classList.add('d-none');
+            endTimeSection.classList.add('d-none');
+        }
+    });
+    
+    // Toggle weird section
+    weirdCheckbox.addEventListener('change', function() {
+        weirdSection.classList.toggle('d-none', !this.checked);
+        if (!this.checked) {
+            document.getElementById('weirdIntensity').value = '';
+        }
+    });
+    
+    // Toggle craving section
+    cravingCheckbox.addEventListener('change', function() {
+        cravingSection.classList.toggle('d-none', !this.checked);
+        if (!this.checked) {
+            document.getElementById('cravingIntensity').value = '';
+        }
+    });
+    
+    // Toggle irritation section
+    irritationCheckbox.addEventListener('change', function() {
+        irritationSection.classList.toggle('d-none', !this.checked);
+        if (!this.checked) {
+            document.getElementById('irritationIntensity').value = '';
+        }
+    });
+    
+    // Toggle joint pain section
+    if (jointPainCheckbox) {
+        jointPainCheckbox.addEventListener('change', function() {
+            jointPainSection.classList.toggle('d-none', !this.checked);
+            if (!this.checked) {
+                document.getElementById('jointPainIntensity').value = '';
+            }
+        });
+    }
+    
+    // Toggle diarrhea section
+    if (diarrheaCheckbox) {
+        diarrheaCheckbox.addEventListener('change', function() {
+            diarrheaSection.classList.toggle('d-none', !this.checked);
+        });
+    }
+    
+    // Period start/end markers
+    periodStartCheckbox.addEventListener('change', function() {
+        startTimeSection.classList.toggle('d-none', !this.checked);
+        if (!this.checked) {
+            document.getElementById('startTime').value = '';
+        }
+    });
+    
+    periodEndCheckbox.addEventListener('change', function() {
+        endTimeSection.classList.toggle('d-none', !this.checked);
+        if (!this.checked) {
+            document.getElementById('endTime').value = '';
+        }
+    });
+    
+    // Update flow amount display
+    const flowAmount = document.getElementById('flowAmount');
+    if (flowAmount) {
+        flowAmount.addEventListener('input', function() {
+            document.getElementById('flowValue').textContent = this.value;
+        });
+    }
+    
+    // Form validation
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        let isValid = true;
+        const validationMessage = [];
+        
+        // Check Feeling Weird
+        if (weirdCheckbox.checked) {
+            const weirdIntensity = document.getElementById('weirdIntensity').value;
+            if (!weirdIntensity) {
+                isValid = false;
+                validationMessage.push('Please select intensity for "Feeling Weird"');
+            }
+        }
+        
+        // Check Craving
+        if (cravingCheckbox.checked) {
+            const cravingIntensity = document.getElementById('cravingIntensity').value;
+            if (!cravingIntensity) {
+                isValid = false;
+                validationMessage.push('Please select intensity for "Craving"');
+            }
+        }
+        
+        // Check Irritation
+        if (irritationCheckbox.checked) {
+            const irritationIntensity = document.getElementById('irritationIntensity').value;
+            if (!irritationIntensity) {
+                isValid = false;
+                validationMessage.push('Please select intensity for "Irritation"');
+            }
+        }
+        
+        // Check Joint Pain
+        if (jointPainCheckbox && jointPainCheckbox.checked) {
+            const jointPainIntensity = document.getElementById('jointPainIntensity').value;
+            if (!jointPainIntensity) {
+                isValid = false;
+                validationMessage.push('Please select intensity for "Joint Pain"');
+            }
+        }
+        
+        // Check if at least one symptom is selected (Period not part of visible symptoms)
+        if (!weirdCheckbox.checked && !cravingCheckbox.checked && 
+            !irritationCheckbox.checked && !(jointPainCheckbox && jointPainCheckbox.checked) && 
+            !(diarrheaCheckbox && diarrheaCheckbox.checked)) {
+            isValid = false;
+            validationMessage.push('Please select at least one symptom');
+        }
+        
+        if (!isValid) {
+            e.preventDefault();
+            displayValidationErrors(validationMessage);
+        }
+    });
+});
+
+// Function to display validation errors
+function displayValidationErrors(errors) {
+    const errorBox = document.getElementById('validationErrorBox');
+    const errorList = document.getElementById('errorList');
+    
+    if (!errorBox || !errorList) return;
+    
+    // Clear previous errors
+    errorList.innerHTML = '';
+    
+    // Add each error as a list item
+    errors.forEach(function(error) {
+        const li = document.createElement('li');
+        li.className = 'mb-2';
+        li.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + error;
+        errorList.appendChild(li);
+    });
+    
+    // Show the error box
+    errorBox.classList.remove('d-none');
+    
+    // Scroll to error box
+    errorBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Function to hide validation errors
+function hideValidationErrors() {
+    const errorBox = document.getElementById('validationErrorBox');
+    if (errorBox) {
+        errorBox.classList.add('d-none');
+    }
+}
+
+// Clear errors when form is valid (optional - for better UX)
+document.addEventListener('DOMContentLoaded', function() {
+    const formInputs = document.querySelectorAll('input[type="checkbox"], input[type="date"], textarea, select');
+    formInputs.forEach(function(input) {
+        input.addEventListener('change', hideValidationErrors);
+    });
+});
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-7 col-lg-8 col-md-10 col-sm-12">
+        <!-- Validation Error Box -->
+        <div id="validationErrorBox" class="alert alert-danger alert-dismissible fade show d-none mb-4" role="alert">
+            <div class="d-flex align-items-start">
+                <div>
+                    <h5 class="alert-heading mb-3">
+                        <i class="fas fa-exclamation-triangle"></i> Validation Errors
+                    </h5>
+                    <ul id="errorList" class="mb-0 ps-0 list-unstyled">
+                    </ul>
+                </div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" onclick="hideValidationErrors()"></button>
+        </div>
+
+        <div class="card shadow-lg">
+            <div class="card-header bg-gradient-primary text-white text-center py-4">
+                <h3 class="mb-1">
+                    {% if entry_to_edit %}
+                    <i class="fas fa-edit"></i> Edit Entry
+                    {% else %}
+                    <i class="fas fa-pen"></i> Add Daily Entry
+                    {% endif %}
+                </h3>
+                <p class="mb-0 small">{% if entry_to_edit %}Update your entry for {{ entry_to_edit.date | format_date }}{% else %}Track your menstrual cycle and symptoms{% endif %}</p>
+            </div>
+            
+            <div class="card-body p-4">
+                <form method="POST">
+                    <!-- Hidden entry ID for edit mode -->
+                    {% if entry_to_edit %}
+                    <input type="hidden" name="entry_id" value="{{ entry_to_edit.id }}">
+                    {% endif %}
+                    
+                    <!-- Date Selection -->
+                    <div class="mb-4">
+                        <label for="date" class="form-label fw-bold d-flex align-items-center">
+                            <i class="fas fa-calendar-alt text-primary me-2"></i> Date
+                        </label>
+                        <input type="date" class="form-control form-control-lg" id="date" name="date" required>
+                        <small class="text-muted d-block mt-2">Select the date for this entry</small>
+                    </div>
+                    
+                    <!-- Period Tracking Section (Prominent) -->
+                    <div class="mb-4 p-3 rounded border-2 border-danger">
+                        <h5 class="card-title fw-bold mb-3">
+                            <i class="fas fa-droplet text-danger"></i> Period Tracking
+                        </h5>
+                        <div class="form-check form-check-lg mb-3">
+                            <input class="form-check-input" type="checkbox" id="period_track" name="symptoms" value="period">
+                            <label class="form-check-label" for="period_track">
+                                <strong>I have my period today</strong>
+                            </label>
+                        </div>
+                        <div id="periodDetailsSection" class="d-none">
+                            <div class="mb-3">
+                                <label for="flowAmount" class="form-label fw-bold">Flow Amount</label>
+                                <input type="range" class="form-range" id="flowAmount" name="flow_amount" min="1" max="10" value="5">
+                                <div class="d-flex justify-content-between small text-muted mt-2">
+                                    <span>Light</span>
+                                    <strong id="flowValue" class="text-primary">5</strong>
+                                    <span>Very Heavy</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <h6 class="small fw-bold text-muted mb-2">MARK PERIOD PHASES</h6>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="periodStart">
+                                    <label class="form-check-label" for="periodStart">
+                                        <i class="fas fa-flag text-success"></i> Mark as <strong>START</strong> of Period
+                                    </label>
+                                </div>
+                                <div id="startTimeSection" class="d-none ms-4 mb-3">
+                                    <label for="startTime" class="form-label small">Start Time (optional)</label>
+                                    <input type="time" class="form-control form-control-sm" id="startTime" name="start_time">
+                                </div>
+                                
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="periodEnd">
+                                    <label class="form-check-label" for="periodEnd">
+                                        <i class="fas fa-flag text-danger"></i> Mark as <strong>END</strong> of Period
+                                    </label>
+                                </div>
+                                <div id="endTimeSection" class="d-none ms-4 mt-3">
+                                    <label for="endTime" class="form-label small">End Time (optional)</label>
+                                    <input type="time" class="form-control form-control-sm" id="endTime" name="end_time">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Date Selection -->
+                    <div class="mb-4">
+
+                        <h5 class="card-title fw-bold mb-3">
+                            <i class="fas fa-heartbeat text-danger"></i> Symptoms – Select all that apply
+                        </h5>
+                        
+                        <!-- Symptoms Grid - 2x3 on smaller, 6 across on larger -->
+                        <div class="row g-2 g-sm-3 g-md-3 mb-4">
+                            <!-- Period Hidden - handled separately -->
+                            <input class="form-check-input d-none" type="checkbox" id="period" name="symptoms" value="period">
+                            
+                            <div class="col-6 col-sm-6 col-md-4 col-lg-2">
+                                <div class="form-check form-check-lg">
+                                    <input class="form-check-input" type="checkbox" id="weird" name="symptoms" value="weird">
+                                    <label class="form-check-label" for="weird">
+                                        <strong><i class="fas fa-face-dizzy text-warning"></i> Feeling Weird</strong>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-6 col-md-4 col-lg-2">
+                                <div class="form-check form-check-lg">
+                                    <input class="form-check-input" type="checkbox" id="craving" name="symptoms" value="craving">
+                                    <label class="form-check-label" for="craving">
+                                        <strong><i class="fas fa-candy text-info"></i> Craving</strong>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-6 col-md-4 col-lg-2">
+                                <div class="form-check form-check-lg">
+                                    <input class="form-check-input" type="checkbox" id="irritation" name="symptoms" value="irritation">
+                                    <label class="form-check-label" for="irritation">
+                                        <strong><i class="fas fa-face-angry text-success"></i> Irritation</strong>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-6 col-md-4 col-lg-2">
+                                <div class="form-check form-check-lg">
+                                    <input class="form-check-input" type="checkbox" id="joint_pain" name="symptoms" value="joint_pain">
+                                    <label class="form-check-label" for="joint_pain">
+                                        <strong><i class="fas fa-bone text-muted"></i> Joint Pain</strong>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-6 col-md-4 col-lg-2">
+                                <div class="form-check form-check-lg">
+                                    <input class="form-check-input" type="checkbox" id="diarrhea" name="symptoms" value="diarrhea">
+                                    <label class="form-check-label" for="diarrhea">
+                                        <strong><i class="fas fa-toilet text-secondary"></i> Diarrhea</strong>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Feeling Weird Details -->
+                    <div id="weirdSection" class="d-none form-section border-warning">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-face-dizzy text-warning"></i> Feeling Weird Details</h6>
+                        <div class="mb-3">
+                            <label for="weirdIntensity" class="form-label fw-bold">Intensity</label>
+                            <select class="form-select" id="weirdIntensity" name="weird_intensity">
+                                <option value="">Select intensity level</option>
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Craving Details -->
+                    <div id="cravingSection" class="d-none form-section border-info">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-candy text-info"></i> Craving Details</h6>
+                        <div class="mb-3">
+                            <label for="cravingIntensity" class="form-label fw-bold">Intensity</label>
+                            <select class="form-select" id="cravingIntensity" name="craving_intensity">
+                                <option value="">Select intensity level</option>
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Irritation Details -->
+                    <div id="irritationSection" class="d-none form-section border-success">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-face-angry text-success"></i> Irritation Details</h6>
+                        <div class="mb-3">
+                            <label for="irritationIntensity" class="form-label fw-bold">Intensity</label>
+                            <select class="form-select" id="irritationIntensity" name="irritation_intensity">
+                                <option value="">Select intensity level</option>
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Joint Pain Details -->
+                    <div id="jointPainSection" class="d-none form-section border-muted">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-bone text-muted"></i> Joint Pain Details</h6>
+                        <div class="mb-3">
+                            <label for="jointPainIntensity" class="form-label fw-bold">Intensity</label>
+                            <select class="form-select" id="jointPainIntensity" name="joint_pain_intensity">
+                                <option value="">Select intensity level</option>
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Diarrhea Details -->
+                    <div id="diarrheaSection" class="d-none form-section border-secondary">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-toilet text-secondary"></i> Diarrhea Noted</h6>
+                        <p class="text-muted small mb-0">This symptom has been recorded for today.</p>
+                    </div>
+                    
+                    <!-- Additional Notes -->
+                    <div class="mb-4">
+                        <label for="notes" class="form-label fw-bold d-flex align-items-center">
+                            <i class="fas fa-sticky-note text-info me-2"></i> Additional Notes (Optional)
+                        </label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Add any additional notes about this day..."></textarea>
+                    </div>
+                    
+                    <!-- Submit Buttons -->
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg fw-bold">
+                            {% if entry_to_edit %}
+                            <i class="fas fa-sync"></i> Update Entry
+                            {% else %}
+                            <i class="fas fa-save"></i> Save Entry
+                            {% endif %}
+                        </button>
+                        <a href="/entries" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> Back to Entries
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Update flow amount display -->
+<script>
+document.getElementById('flowAmount')?.addEventListener('input', function() {
+    document.getElementById('flowValue').textContent = this.value;
+});
+</script>
+
+<style>
+/* Dark mode support for form elements */
+html[data-bs-theme="dark"] .form-check-input {
+    background-color: #404040;
+    border-color: #606060;
+}
+
+html[data-bs-theme="dark"] .form-check-input:checked {
+    background-color: #667eea;
+    border-color: #667eea;
+}
+
+html[data-bs-theme="dark"] .form-range {
+    background-color: #404040;
+}
+
+html[data-bs-theme="dark"] .form-range::-webkit-slider-thumb {
+    background-color: #667eea;
+    border-color: #2d2d2d;
+}
+
+html[data-bs-theme="dark"] .form-range::-moz-range-thumb {
+    background-color: #667eea;
+    border-color: #2d2d2d;
+}
+
+html[data-bs-theme="dark"] .form-section {
+    background-color: #1a1a1a;
+    border-color: #404040;
+}
+
+/* Responsive text sizing for labels on mobile */
+@media (max-width: 576px) {
+    .form-label {
+        font-size: 0.9rem;
+    }
+    
+    .card-title {
+        font-size: 1.1rem;
+    }
+    
+    h6 {
+        font-size: 0.95rem;
+    }
+}
+
+/* Responsive button sizing */
+@media (max-width: 576px) {
+    .btn-lg {
+        padding: 0.6rem 1rem;
+        font-size: 0.95rem;
+    }
+}
+
+/* Validation Error Box Styling */
+#validationErrorBox {
+    border-left: 4px solid #dc3545;
+    animation: slideIn 0.3s ease-out;
+}
+
+#validationErrorBox.alert-danger {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+#validationErrorBox .alert-heading {
+    color: #721c24;
+    font-weight: 600;
+}
+
+#validationErrorBox #errorList li {
+    padding: 0.4rem 0;
+    font-size: 0.95rem;
+}
+
+#validationErrorBox #errorList li i {
+    margin-right: 0.5rem;
+    color: #dc3545;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Dark mode support for error box */
+html[data-bs-theme="dark"] #validationErrorBox.alert-danger {
+    background-color: #4a1f1f;
+    border-color: #8b3d3d;
+    color: #f8d7da;
+}
+
+html[data-bs-theme="dark"] #validationErrorBox .alert-heading {
+    color: #f8d7da;
+}
+</style>
+{% endblock %}

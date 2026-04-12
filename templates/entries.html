@@ -1,0 +1,706 @@
+{% extends "base.html" %}
+
+{% block title %}View Entries - Femtrack{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-lg">
+            <div class="card-header bg-gradient-primary text-white text-center py-4">
+                <h3 class="mb-1"><i class="fas fa-list"></i> Your Cycle Entries</h3>
+                <p class="mb-0 small">View, edit, and manage all your tracked entries</p>
+            </div>
+            
+            <div class="card-body p-4">
+                {% if entries %}
+                    <!-- Filter & Pagination Controls -->
+                    <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
+                        <div>
+                            <label for="entriesFilter" class="form-label mb-0 small"><strong>Filter:</strong></label>
+                            <select class="form-select form-select-sm d-inline w-auto" id="entriesFilter" style="max-width: 200px;">
+                                <option value="all" selected>All Entries</option>
+                                <option value="period">Period Entries</option>
+                                <option value="symptoms">Symptom Entries</option>
+                                <option value="recent">Recent (Last 7 Days)</option>
+                                <option value="notes">With Notes</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="entriesPerPage" class="form-label mb-0 small"><strong>Per Page:</strong></label>
+                            <select class="form-select form-select-sm d-inline w-auto" id="entriesPerPage">
+                                <option value="10" selected>10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Table View for Desktop -->
+                    <div class="table-responsive d-none d-md-block">
+                        <table class="table table-hover mb-0" id="entriesTable">
+                            <thead class="table-primary">
+                                <tr>
+                                    <th style="cursor: pointer;" onclick="sortTable('date')" title="Click to sort">
+                                        Date <span class="sort-indicator" data-column="date"></span>
+                                    </th>
+                                    <th style="cursor: pointer;" onclick="sortTable('symptoms')" title="Click to sort">
+                                        Symptoms <span class="sort-indicator" data-column="symptoms"></span>
+                                    </th>
+                                    <th style="cursor: pointer;" onclick="sortTable('flow')" title="Click to sort">
+                                        Flow/Details <span class="sort-indicator" data-column="flow"></span>
+                                    </th>
+                                    <th style="cursor: pointer;" onclick="sortTable('notes')" title="Click to sort">
+                                        Notes <span class="sort-indicator" data-column="notes"></span>
+                                    </th>
+                                    <th class="text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                {% for entry in entries %}
+                                <tr class="align-middle entry-row" data-date="{{ entry.date }}" data-entry-id="{{ entry.id }}">
+                                    <td>
+                                        <strong>{{ entry.date | format_date }}</strong>
+                                    </td>
+                                    <td>
+                                        {% set symptom_names = [] %}
+                                        {% for symptom in entry.symptoms %}
+                                            {% if symptom_names.append(symptom.name|replace('_', ' ')|title) %}{% endif %}
+                                        {% endfor %}
+                                        <span class="badge bg-info">{{ symptom_names|join(', ') }}</span>
+                                    </td>
+                                    <td>
+                                        {% for symptom in entry.symptoms %}
+                                            {% if symptom.name == 'period' and symptom.flow_amount %}
+                                                <small><i class="fas fa-tint text-danger"></i> Flow: {{ symptom.flow_amount }}/10</small><br>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    <td>
+                                        {{ entry.notes[:50] }}{% if entry.notes and entry.notes|length > 50 %}...{% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-info" onclick="viewDetails('{{ entry.id }}')">
+                                            <i class="fas fa-eye"></i> View
+                                        </button>
+                                        <a href="/input?entry_id={{ entry.id }}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                        <button class="btn btn-sm btn-danger" onclick="confirmDelete('{{ entry.id }}', '{{ entry.date }}')">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        
+                        <!-- Pagination Controls -->
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <small class="text-muted">
+                                Showing <strong id="startEntry">1</strong> to <strong id="endEntry">10</strong> of <strong id="totalEntries">{{ entries|length }}</strong> entries
+                            </small>
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0">
+                                    <li class="page-item" id="prevBtn">
+                                        <a class="page-link" href="#" onclick="previousPage(); return false;">Previous</a>
+                                    </li>
+                                    <li class="page-item disabled" id="pageInfo">
+                                        <span class="page-link">Page <strong id="currentPage">1</strong> of <strong id="totalPages">1</strong></span>
+                                    </li>
+                                    <li class="page-item" id="nextBtn">
+                                        <a class="page-link" href="#" onclick="nextPage(); return false;">Next</a>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                    
+                    <!-- Card View for Mobile -->
+                    <div class="d-md-none">
+                        {% for entry in entries %}
+                        <div class="card mb-3 entry-card">
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="mb-0 text-primary"><strong>{{ entry.date | format_date }}</strong></h6>
+                                    <span class="badge bg-info">Entry</span>
+                                </div>
+                                
+                                <div class="mb-2">
+                                    <small class="text-muted"><strong>Symptoms:</strong></small><br>
+                                    {% set symptom_names = [] %}
+                                    {% for symptom in entry.symptoms %}
+                                        {% if symptom_names.append(symptom.name|replace('_', ' ')|title) %}{% endif %}
+                                    {% endfor %}
+                                    <small>{{ symptom_names|join(', ') }}</small>
+                                </div>
+                                
+                                {% for symptom in entry.symptoms %}
+                                    {% if symptom.name == 'period' and symptom.flow_amount %}
+                                    <div class="mb-2">
+                                        <small class="text-muted"><i class="fas fa-tint text-danger"></i> Flow: {{ symptom.flow_amount }}/10</small>
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if entry.notes %}
+                                <div class="mb-3">
+                                    <small class="text-muted"><strong>Notes:</strong></small><br>
+                                    <small>{{ entry.notes }}</small>
+                                </div>
+                                {% endif %}
+                                
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-sm btn-info" onclick="viewDetails('{{ entry.id }}')">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                    <a href="/input?entry_id={{ entry.id }}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </a>
+                                    <button class="btn btn-sm btn-danger" onclick="confirmDelete('{{ entry.id }}', '{{ entry.date }}')">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-inbox"></i> No entries yet.<br>
+                        <a href="/input" class="btn btn-sm btn-primary mt-2">Create Your First Entry</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Details Modal -->
+<div class="modal fade" id="viewDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-eye"></i> Entry Details - <span id="detailDate"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Symptoms Section -->
+                <div class="mb-4">
+                    <h6 class="text-primary fw-bold mb-3"><i class="fas fa-heartbeat"></i> Symptoms</h6>
+                    <div id="detailSymptoms"></div>
+                </div>
+                
+                <!-- Notes Section -->
+                <div class="mb-4" id="notesSection">
+                    <h6 class="text-primary fw-bold mb-3"><i class="fas fa-sticky-note"></i> Notes</h6>
+                    <p id="detailNotes"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle"></i> Delete Entry</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the entry for <strong id="deleteDate"></strong>?</p>
+                <p class="text-muted small">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn" onclick="deleteEntry()">
+                    <i class="fas fa-trash"></i> Delete Entry
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let allEntries = {};
+
+// Format date from YYYY-MM-DD to "DD Month YYYY"
+function formatDate(dateStr) {
+    const date = new Date(dateStr + 'T00:00:00');
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    return date.toLocaleDateString('en-US', options);
+}
+
+// Store all entries data for access in modal
+{% for entry in entries %}
+allEntries['{{ entry.id }}'] = {{ entry|tojson|safe }};
+{% endfor %}
+
+let deleteEntryId = null;
+
+function getSymptomIcon(symptomName) {
+    const icons = {
+        'period': '<i class="fas fa-circle text-danger"></i>',
+        'weird': '<i class="fas fa-face-dizzy text-warning"></i>',
+        'craving': '<i class="fas fa-candy text-info"></i>',
+        'irritation': '<i class="fas fa-face-angry text-success"></i>',
+        'joint_pain': '<i class="fas fa-bone text-muted"></i>',
+        'diarrhea': '<i class="fas fa-toilet text-secondary"></i>'
+    };
+    return icons[symptomName] || '<i class="fas fa-check"></i>';
+}
+
+function getIntensityBadgeClass(intensity) {
+    const classes = {
+        'low': 'bg-success',
+        'medium': 'bg-warning',
+        'high': 'bg-danger'
+    };
+    return classes[intensity] || 'bg-secondary';
+}
+
+function viewDetails(entryId) {
+    const entry = allEntries[entryId];
+    if (!entry) return;
+    
+    // Set date with formatted display
+    document.getElementById('detailDate').textContent = formatDate(entry.date);
+    
+    // Build symptoms HTML
+    let symptomsHtml = '';
+    if (entry.symptoms && entry.symptoms.length > 0) {
+        entry.symptoms.forEach(function(symptom) {
+            let symptomHtml = '<div class="mb-3 p-3 border rounded" style="background-color: rgba(102, 126, 234, 0.05);">';
+            symptomHtml += '<div class="d-flex align-items-center mb-2">';
+            symptomHtml += '<span class="me-2">' + getSymptomIcon(symptom.name) + '</span>';
+            symptomHtml += '<strong>' + symptom.name.replace(/_/g, ' ').toUpperCase() + '</strong>';
+            symptomHtml += '</div>';
+            
+            if (symptom.name === 'period') {
+                if (symptom.flow_amount) {
+                    symptomHtml += '<p class="mb-2"><small><span class="badge bg-danger">Flow: ' + symptom.flow_amount + '/10</span></small></p>';
+                }
+                if (symptom.start_marked) {
+                    symptomHtml += '<p class="mb-2"><small><i class="fas fa-play text-info"></i> Period Started' + (symptom.start_time ? ' at ' + symptom.start_time : '') + '</small></p>';
+                }
+                if (symptom.end_marked) {
+                    symptomHtml += '<p class="mb-2"><small><i class="fas fa-stop text-warning"></i> Period Ended' + (symptom.end_time ? ' at ' + symptom.end_time : '') + '</small></p>';
+                }
+            } else if (symptom.intensity) {
+                const badgeClass = getIntensityBadgeClass(symptom.intensity);
+                symptomHtml += '<p class="mb-0"><small><span class="badge ' + badgeClass + '">Intensity: ' + symptom.intensity + '</span></small></p>';
+            } else if (symptom.name !== 'diarrhea') {
+                // Show placeholder for symptoms with missing intensity (except diarrhea which doesn't require it)
+                symptomHtml += '<p class="mb-0"><small><span class="badge bg-secondary">No intensity specified</span></small></p>';
+            }
+            
+            symptomHtml += '</div>';
+            symptomsHtml += symptomHtml;
+        });
+    } else {
+        symptomsHtml = '<p class="text-muted">No symptoms recorded</p>';
+    }
+    document.getElementById('detailSymptoms').innerHTML = symptomsHtml;
+    
+    // Set notes
+    if (entry.notes) {
+        document.getElementById('detailNotes').textContent = entry.notes;
+        document.getElementById('notesSection').style.display = 'block';
+    } else {
+        document.getElementById('notesSection').style.display = 'none';
+    }
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('viewDetailsModal'));
+    modal.show();
+}
+
+function confirmDelete(entryId, date) {
+    deleteEntryId = entryId;
+    document.getElementById('deleteDate').textContent = formatDate(date);
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.show();
+}
+
+function deleteEntry() {
+    if (!deleteEntryId) return;
+    
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/delete-entry/${deleteEntryId}`;
+    document.body.appendChild(form);
+    form.submit();
+}
+
+// Filter functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const filterSelect = document.getElementById('entriesFilter');
+    const perPageSelect = document.getElementById('entriesPerPage');
+    const tableRows = document.querySelectorAll('table tbody tr');
+    const cardRows = document.querySelectorAll('.d-md-none .entry-card');
+    
+    // Initialize filter state on all rows
+    tableRows.forEach(row => {
+        row.setAttribute('data-filter-hidden', 'false');
+    });
+    
+    if (filterSelect) {
+        filterSelect.addEventListener('change', function() {
+            const filterType = this.value;
+            applyEntriesFilter(filterType, tableRows, cardRows);
+            currentPage = 1;
+            updatePagination();
+        });
+    }
+    
+    if (perPageSelect) {
+        perPageSelect.addEventListener('change', function() {
+            itemsPerPage = parseInt(this.value);
+            currentPage = 1;
+            updatePagination();
+        });
+    }
+    
+    // Initialize pagination
+    updatePagination();
+});
+
+// Sorting and Pagination Variables
+let currentPage = 1;
+let itemsPerPage = 10;
+let sortColumn = 'date';
+let sortDirection = 'desc';
+
+function sortTable(column) {
+    const rows = Array.from(document.querySelectorAll('#tableBody tr:not([style*="display: none"])'));
+    
+    // Update sort direction if same column clicked
+    if (sortColumn === column) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortColumn = column;
+        sortDirection = 'desc';
+    }
+    
+    // Sort rows
+    rows.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch(column) {
+            case 'date':
+                aValue = new Date(a.getAttribute('data-date'));
+                bValue = new Date(b.getAttribute('data-date'));
+                break;
+            case 'symptoms':
+                aValue = a.cells[1].textContent.trim();
+                bValue = b.cells[1].textContent.trim();
+                break;
+            case 'flow':
+                aValue = a.cells[2].textContent.trim();
+                bValue = b.cells[2].textContent.trim();
+                break;
+            case 'notes':
+                aValue = a.cells[3].textContent.trim();
+                bValue = b.cells[3].textContent.trim();
+                break;
+            default:
+                return 0;
+        }
+        
+        if (typeof aValue === 'string') {
+            return sortDirection === 'asc' 
+                ? aValue.localeCompare(bValue)
+                : bValue.localeCompare(aValue);
+        } else {
+            return sortDirection === 'asc' 
+                ? aValue - bValue
+                : bValue - aValue;
+        }
+    });
+    
+    // Re-insert sorted rows
+    const tbody = document.getElementById('tableBody');
+    rows.forEach(row => tbody.appendChild(row));
+    
+    // Update sort indicators
+    document.querySelectorAll('.sort-indicator').forEach(el => el.textContent = '');
+    const indicator = document.querySelector(`[data-column="${column}"]`);
+    if (indicator) {
+        indicator.textContent = sortDirection === 'asc' ? ' ▲' : ' ▼';
+    }
+    
+    // Reset pagination
+    currentPage = 1;
+    updatePagination();
+}
+
+function updatePagination() {
+    const allRows = Array.from(document.querySelectorAll('#tableBody tr'));
+    // Get rows that are not filtered out (data-filter-hidden is not 'true')
+    const filterVisibleRows = allRows.filter(row => row.getAttribute('data-filter-hidden') !== 'true');
+    const totalPages = Math.ceil(filterVisibleRows.length / itemsPerPage) || 1;
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = Math.min(start + itemsPerPage, filterVisibleRows.length);
+    
+    // Show/hide rows based on current page AND filter state
+    filterVisibleRows.forEach((row, index) => {
+        row.style.display = (index >= start && index < end) ? '' : 'none';
+    });
+    
+    // Hide rows that are filtered out
+    allRows.forEach(row => {
+        if (row.getAttribute('data-filter-hidden') === 'true') {
+            row.style.display = 'none';
+        }
+    });
+    
+    // Update pagination info
+    document.getElementById('currentPage').textContent = currentPage;
+    document.getElementById('totalPages').textContent = totalPages;
+    document.getElementById('startEntry').textContent = filterVisibleRows.length > 0 ? start + 1 : 0;
+    document.getElementById('endEntry').textContent = end;
+    document.getElementById('totalEntries').textContent = filterVisibleRows.length;
+    
+    // Update button states
+    document.getElementById('prevBtn').classList.toggle('disabled', currentPage === 1);
+    document.getElementById('nextBtn').classList.toggle('disabled', currentPage === totalPages);
+}
+
+function nextPage() {
+    const totalPages = parseInt(document.getElementById('totalPages').textContent);
+    if (currentPage < totalPages) {
+        currentPage++;
+        updatePagination();
+    }
+}
+
+function previousPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        updatePagination();
+    }
+}
+
+function applyEntriesFilter(filterType, tableRows, cardRows) {
+    // Today's date for recent filter calculation
+    const today = new Date();
+    const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    
+    // Filter table rows
+    tableRows.forEach(function(row) {
+        let show = true;
+        
+        if (filterType === 'period') {
+            const symptomsCell = row.querySelector('td:nth-child(2)');
+            show = symptomsCell && symptomsCell.textContent.toLowerCase().includes('period');
+        } else if (filterType === 'symptoms') {
+            const symptomsCell = row.querySelector('td:nth-child(2)');
+            show = symptomsCell && !symptomsCell.textContent.toLowerCase().includes('period');
+        } else if (filterType === 'recent') {
+            const dateCell = row.querySelector('td:first-child');
+            if (dateCell) {
+                const dateText = dateCell.textContent.trim();
+                const entryDate = new Date(dateText);
+                show = entryDate >= sevenDaysAgo && entryDate <= today;
+            }
+        } else if (filterType === 'notes') {
+            const notesCell = row.querySelector('td:nth-child(4)');
+            show = notesCell && notesCell.textContent.trim().length > 0;
+        }
+        
+        // Use data attribute to track filter state
+        row.setAttribute('data-filter-hidden', show ? 'false' : 'true');
+    });
+    
+    // Filter card rows
+    cardRows.forEach(function(card) {
+        let show = true;
+        
+        if (filterType === 'period') {
+            const symptomsText = card.textContent.toLowerCase();
+            show = symptomsText.includes('period');
+        } else if (filterType === 'symptoms') {
+            const symptomsText = card.textContent.toLowerCase();
+            show = !symptomsText.includes('period');
+        } else if (filterType === 'recent') {
+            const dateElement = card.querySelector('h6');
+            if (dateElement) {
+                const dateText = dateElement.textContent.trim();
+                const entryDate = new Date(dateText);
+                show = entryDate >= sevenDaysAgo && entryDate <= today;
+            }
+        } else if (filterType === 'notes') {
+            const notesText = card.textContent.toLowerCase();
+            show = notesText.includes('notes:') && !notesText.includes('notes:');
+        }
+        
+        card.style.display = show ? '' : 'none';
+    });
+}
+</script>
+
+<style>
+/* Dark mode support */
+html[data-bs-theme="dark"] .card {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+}
+
+html[data-bs-theme="dark"] .table {
+    color: var(--text-color);
+    border-color: var(--border-color);
+}
+
+html[data-bs-theme="dark"] .table thead {
+    background-color: rgba(102, 126, 234, 0.2);
+    border-bottom-color: var(--border-color);
+}
+
+html[data-bs-theme="dark"] .table tbody tr {
+    border-bottom-color: var(--border-color);
+}
+
+html[data-bs-theme="dark"] .table tbody tr:hover {
+    background-color: rgba(102, 126, 234, 0.1);
+}
+
+html[data-bs-theme="dark"] .entry-card {
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+html[data-bs-theme="dark"] .modal-content {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+}
+
+html[data-bs-theme="dark"] .modal-header {
+    border-bottom-color: var(--border-color);
+}
+
+html[data-bs-theme="dark"] .modal-footer {
+    border-top-color: var(--border-color);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1rem !important;
+    }
+    
+    .entry-card {
+        margin-bottom: 1rem;
+    }
+}
+
+.entry-card {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.entry-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.table-primary th {
+    background-color: rgba(102, 126, 234, 0.15);
+    color: var(--text-color);
+}
+
+/* Modal styling for detail view */
+#viewDetailsModal .border.rounded {
+    border-color: var(--border-color) !important;
+}
+
+/* Sortable Table Headers */
+#entriesTable thead th {
+    user-select: none;
+    font-weight: 600;
+}
+
+#entriesTable thead th[onclick] {
+    cursor: pointer;
+    background-color: rgba(102, 126, 234, 0.2);
+    transition: background-color 0.2s ease;
+}
+
+#entriesTable thead th[onclick]:hover {
+    background-color: rgba(102, 126, 234, 0.35);
+}
+
+.sort-indicator {
+    color: #0dcaf0;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+/* Pagination Styling */
+.pagination-sm .page-item {
+    margin: 0 2px;
+}
+
+.pagination .page-link {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    border-radius: 4px;
+}
+
+.pagination .page-link:hover:not(.disabled *) {
+    background-color: #0dcaf0;
+    color: white;
+}
+
+.pagination .page-item.disabled .page-link {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+#prevBtn.disabled,
+#nextBtn.disabled {
+    pointer-events: none;
+}
+
+#prevBtn.disabled .page-link,
+#nextBtn.disabled .page-link {
+    color: #6c757d;
+    background-color: #e9ecef;
+    border-color: #dee2e6;
+}
+
+/* Entries per page selector */
+#entriesPerPage {
+    max-width: 100px;
+}
+
+/* Dark mode - Sortable headers */
+html[data-bs-theme="dark"] #entriesTable thead th[onclick] {
+    background-color: rgba(102, 126, 234, 0.3);
+}
+
+html[data-bs-theme="dark"] #entriesTable thead th[onclick]:hover {
+    background-color: rgba(102, 126, 234, 0.45);
+}
+
+html[data-bs-theme="dark"] #viewDetailsModal .border.rounded {
+    background-color: rgba(102, 126, 234, 0.1) !important;
+    border-color: rgba(102, 126, 234, 0.3) !important;
+}
+
+#detailSymptoms .badge {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.6rem;
+}
+
+#detailNotes {
+    line-height: 1.6;
+    word-break: break-word;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,60 @@
+<svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f093fb;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#f5576c;stop-opacity:1"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="500" fill="url(#grad3)"/>
+  
+  <!-- Meditation Figure - Left Side -->
+  <g transform="translate(180, 150)">
+    <!-- Head -->
+    <circle cx="0" cy="0" r="25" fill="white" opacity="0.9"/>
+    <!-- Neck -->
+    <rect x="-8" y="22" width="16" height="15" fill="white" opacity="0.9"/>
+    <!-- Body (seated) -->
+    <ellipse cx="0" cy="60" rx="30" ry="45" fill="white" opacity="0.9"/>
+    <!-- Left arm -->
+    <path d="M -30 45 Q -60 40 -70 70" stroke="white" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.9"/>
+    <!-- Right arm -->
+    <path d="M 30 45 Q 60 40 70 70" stroke="white" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.9"/>
+    <!-- Legs (lotus pose) -->
+    <ellipse cx="-20" cy="100" rx="15" ry="20" fill="white" opacity="0.9"/>
+    <ellipse cx="20" cy="100" rx="15" ry="20" fill="white" opacity="0.9"/>
+  </g>
+  
+  <!-- Wellness Elements - Right Side -->
+  <g transform="translate(950, 180)">
+    <!-- Large circle with gradient border -->
+    <circle cx="0" cy="0" r="60" fill="none" stroke="white" stroke-width="4" opacity="0.95"/>
+    <!-- Inner circle -->
+    <circle cx="0" cy="0" r="40" fill="none" stroke="white" stroke-width="2" opacity="0.8"/>
+    <!-- Heart symbol (wellness) -->
+    <path d="M -15 -10 Q -25 -20 -35 -15 Q -40 -10 -35 0 L 0 25 L 35 0 Q 40 -10 35 -15 Q 25 -20 15 -10 Q 0 0 -15 -10" fill="white" opacity="0.9"/>
+  </g>
+  
+  <!-- Decorative elements -->
+  <g opacity="0.3">
+    <circle cx="100" cy="400" r="40" fill="white"/>
+    <circle cx="1100" cy="80" r="30" fill="white"/>
+    <circle cx="300" cy="50" r="25" fill="white"/>
+  </g>
+  
+  <!-- Main Text -->
+  <text x="600" y="80" font-size="56" font-weight="bold" text-anchor="middle" fill="white" font-family="Arial, sans-serif">
+    Health &amp; Wellness
+  </text>
+  
+  <!-- Subtitle -->
+  <text x="600" y="160" font-size="28" text-anchor="middle" fill="white" font-family="Arial, sans-serif" opacity="0.95">
+    Complete control over your wellbeing
+  </text>
+  
+  <!-- Bottom text -->
+  <text x="600" y="450" font-size="18" text-anchor="middle" fill="white" font-family="Arial, sans-serif" opacity="0.8">
+    Track, analyze, and optimize your health journey
+  </text>
+</svg>

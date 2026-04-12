@@ -1,0 +1,55 @@
+ {% extends "base.html" %}
+
+{% block title %}View Analytics Login - Menstrual Tracker{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-5 col-lg-6 col-md-8 col-sm-10">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white text-center">
+                <h4 class="mb-0"><i class="fas fa-chart-line"></i> View Analytics</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-center text-muted mb-4">
+                    <small>View specific user analytics in read-only mode without creating an account</small>
+                </p>
+                <form method="POST" action="/view-analytics-login">
+                    <div class="mb-3">
+                        <label for="view_email" class="form-label">
+                            <i class="fas fa-envelope"></i> User Email
+                        </label>
+                        <input type="email" class="form-control form-control-lg" id="view_email" name="email" required 
+                               placeholder="Enter the user's email address">
+                        <div class="form-text">
+                            <small>Enter the email of the user whose analytics you want to view</small>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="view_password" class="form-label">
+                            <i class="fas fa-key"></i> Analytics Password
+                        </label>
+                        <input type="password" class="form-control form-control-lg" id="view_password" name="password" required 
+                               placeholder="Enter the shared analytics password">
+                        <div class="form-text">
+                            <small>Enter the password to access analytics</small>
+                        </div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-info btn-lg fw-bold">
+                            <i class="fas fa-sign-in-alt"></i> View Analytics
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Regular Login Link -->
+        <div class="text-center mt-4">
+            <p class="text-muted mb-2">Are you a registered user?</p>
+            <a href="/login" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-sign-in-alt"></i> Login to My Account
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

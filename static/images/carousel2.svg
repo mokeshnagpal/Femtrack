@@ -1,0 +1,36 @@
+<svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#11998e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#38ef7d;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="500" fill="url(#grad2)"/>
+  
+  <!-- Bar chart on left -->
+  <g transform="translate(100, 200)">
+    <rect x="0" y="80" width="35" height="100" fill="white" opacity="0.9" rx="4"/>
+    <rect x="50" y="40" width="35" height="140" fill="white" opacity="0.95" rx="4"/>
+    <rect x="100" y="70" width="35" height="110" fill="white" opacity="0.85" rx="4"/>
+    <rect x="150" y="50" width="35" height="130" fill="white" opacity="0.92" rx="4"/>
+    <line x1="0" y1="180" x2="190" y2="180" stroke="white" stroke-width="2" opacity="0.6"/>
+  </g>
+  
+  <!-- Line chart on right -->
+  <g transform="translate(850, 150)">
+    <circle cx="20" cy="100" r="6" fill="white" opacity="0.95"/>
+    <circle cx="80" cy="60" r="6" fill="white" opacity="0.95"/>
+    <circle cx="140" cy="80" r="6" fill="white" opacity="0.95"/>
+    <circle cx="200" cy="40" r="6" fill="white" opacity="0.95"/>
+    <circle cx="260" cy="70" r="6" fill="white" opacity="0.95"/>
+    <polyline points="20,100 80,60 140,80 200,40 260,70" stroke="white" stroke-width="3" fill="none" opacity="0.9"/>
+    <polygon points="20,100 80,60 140,80 200,40 260,70 260,150 20,150" fill="rgba(255,255,255,0.2)"/>
+  </g>
+  
+  <text x="600" y="100" font-size="64" font-weight="bold" text-anchor="middle" fill="white" font-family="Arial">
+    Smart Analytics
+  </text>
+  <text x="600" y="180" font-size="32" text-anchor="middle" fill="rgba(255,255,255,0.95)" font-family="Arial">
+    Visual insights into your cycle patterns
+  </text>
+</svg>
