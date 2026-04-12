@@ -7,21 +7,31 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Firebase setup from environment variable
-firebase_key_json = os.getenv('FIREBASE_KEY')
-if not firebase_key_json:
-    raise ValueError("FIREBASE_KEY environment variable is not set. Please set it with your Firebase service account credentials.")
+# 🔥 Firebase setup from environment variable (UPDATED)
+firebase_credentials_str = os.environ.get('FIREBASE_CREDENTIALS')
+
+if not firebase_credentials_str:
+    raise ValueError("FIREBASE_CREDENTIALS environment variable not set.")
 
 try:
-    firebase_key_dict = json.loads(os.environ["FIREBASE_KEY"])
-    firebase_key_dict["private_key"] = firebase_key_dict["private_key"].replace("\\n", "\n")
-    cred = credentials.Certificate(firebase_key_dict)
-    firebase_admin.initialize_app(cred)
+    firebase_credentials_dict = json.loads(firebase_credentials_str)
+
+    # 🔥 Fix newline issue (CRITICAL)
+    if 'private_key' in firebase_credentials_dict:
+        firebase_credentials_dict['private_key'] = firebase_credentials_dict['private_key'].replace('\\n', '\n')
+
+    cred = credentials.Certificate(firebase_credentials_dict)
+
+    # Prevent re-initialization error
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app(cred)
+
 except json.JSONDecodeError as e:
-    raise ValueError(f"FIREBASE_KEY is not valid JSON: {e}")
+    raise ValueError(f"FIREBASE_CREDENTIALS is not valid JSON: {e}")
 except Exception as e:
     raise ValueError(f"Failed to initialize Firebase: {e}")
 
+# Firestore DB
 db = firestore.client()
 
 # Admin users configuration
