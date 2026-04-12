@@ -1,4 +1,9 @@
-Flask==2.3.3
-firebase-admin==6.2.0
-bcrypt==4.0.1
-python-dotenv==1.0.0
+Flask
+Werkzeug
+firebase-admin
+google-cloud-firestore
+bcrypt
+python-dotenv
+Jinja2
+MarkupSafe
+gunicorn
