@@ -14,7 +14,7 @@ if not firebase_key_json:
 
 try:
     firebase_key_dict = json.loads(os.environ["FIREBASE_KEY"])
-    firebase_key_dict["private_key"] = firebase_key["private_key"].replace("\\n", "\n")
+    firebase_key_dict["private_key"] = firebase_key_dict["private_key"].replace("\\n", "\n")
     cred = credentials.Certificate(firebase_key_dict)
     firebase_admin.initialize_app(cred)
 except json.JSONDecodeError as e:
