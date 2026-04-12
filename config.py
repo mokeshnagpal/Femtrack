@@ -13,7 +13,8 @@ if not firebase_key_json:
     raise ValueError("FIREBASE_KEY environment variable is not set. Please set it with your Firebase service account credentials.")
 
 try:
-    firebase_key_dict = json.loads(firebase_key_json)
+    firebase_key_dict = json.loads(os.environ["FIREBASE_KEY"])
+    firebase_key_dict["private_key"] = firebase_key["private_key"].replace("\\n", "\n")
     cred = credentials.Certificate(firebase_key_dict)
     firebase_admin.initialize_app(cred)
 except json.JSONDecodeError as e:
