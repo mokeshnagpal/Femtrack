@@ -530,6 +530,22 @@ html[data-bs-theme="dark"] .card-footer {
             </div>
             
             <div class="card-body">
+                <!-- Empty State Message -->
+                {% if not cycle_data or not cycle_data.previous_cycles or cycle_data.previous_cycles|length == 0 %}
+                    <div class="alert alert-info text-center" role="alert">
+                        <i class="fas fa-inbox fa-2x mb-3" style="display: block;"></i>
+                        <h5><strong>Not Enough Data Yet</strong></h5>
+                        <p class="mb-3">The cycle predictor needs at least 2 cycle entries to predict your future cycles accurately.</p>
+                        <p class="mb-3 text-muted"><small>You've {% if cycle_data.previous_cycles %}tracked {{ cycle_data.previous_cycles|length }} cycle(s){% else %}not yet started tracking{% endif %}</small></p>
+                        {% if not is_view_only %}
+                        <a href="/input" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add Your First Entry
+                        </a>
+                        {% else %}
+                        <p class="text-muted"><small>In view-only mode. Log in to add entries.</small></p>
+                        {% endif %}
+                    </div>
+                {% else %}
                 <!-- Previous Cycle Info Box -->
                 {% if cycle_data.previous_cycles and cycle_data.previous_cycles|length > 0 %}
                 <div class="card mb-4 border-start border-5 border-info">
@@ -706,6 +722,7 @@ html[data-bs-theme="dark"] .card-footer {
                         </div>
                     </div>
                 </div>
+                {% endif %}
 
             </div>
         </div>

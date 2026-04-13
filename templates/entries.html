@@ -83,12 +83,14 @@
                                         <button class="btn btn-sm btn-info" onclick="viewDetails('{{ entry.id }}')">
                                             <i class="fas fa-eye"></i> View
                                         </button>
+                                        {% if not is_view_only %}
                                         <a href="/input?entry_id={{ entry.id }}" class="btn btn-sm btn-primary">
                                             <i class="fas fa-edit"></i> Edit
                                         </a>
                                         <button class="btn btn-sm btn-danger" onclick="confirmDelete('{{ entry.id }}', '{{ entry.date }}')">
                                             <i class="fas fa-trash"></i> Delete
                                         </button>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -154,21 +156,31 @@
                                     <button class="btn btn-sm btn-info" onclick="viewDetails('{{ entry.id }}')">
                                         <i class="fas fa-eye"></i> View
                                     </button>
+                                    {% if not is_view_only %}
                                     <a href="/input?entry_id={{ entry.id }}" class="btn btn-sm btn-primary">
                                         <i class="fas fa-edit"></i> Edit
                                     </a>
                                     <button class="btn btn-sm btn-danger" onclick="confirmDelete('{{ entry.id }}', '{{ entry.date }}')">
                                         <i class="fas fa-trash"></i> Delete
                                     </button>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
                         {% endfor %}
                     </div>
                 {% else %}
-                    <div class="alert alert-info text-center">
-                        <i class="fas fa-inbox"></i> No entries yet.<br>
-                        <a href="/input" class="btn btn-sm btn-primary mt-2">Create Your First Entry</a>
+                    <div class="alert alert-info text-center" role="alert">
+                        <i class="fas fa-inbox fa-2x mb-3" style="display: block;"></i>
+                        <h5><strong>No Entries Yet</strong></h5>
+                        <p class="mb-3">Start tracking your menstrual cycle to view your entries, analytics, and predictions.</p>
+                        {% if not is_view_only %}
+                        <a href="/input" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Create Your First Entry
+                        </a>
+                        {% else %}
+                        <p class="text-muted"><small>In view-only mode. Log in to add entries.</small></p>
+                        {% endif %}
                     </div>
                 {% endif %}
             </div>

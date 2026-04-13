@@ -5,7 +5,16 @@ from datetime import datetime, timedelta
 from google.cloud.firestore import FieldFilter
 import os
 
-app = Flask(__name__)
+# Get the base directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Initialize Flask app with explicit static and template paths
+app = Flask(
+    __name__,
+    static_folder=os.path.join(BASE_DIR, 'static'),
+    template_folder=os.path.join(BASE_DIR, 'templates'),
+    static_url_path='/static'
+)
 app.secret_key = os.getenv('SECRET_KEY', 'default_secret_key')
 
 # Register Jinja2 filter for cycle phase colors
@@ -81,17 +90,27 @@ def is_admin_user(email):
 
 @app.route('/')
 def home():
-    if 'user' not in session:
+    # Check for regular user or view-only mode
+    if 'user' not in session and not session.get('view_only'):
         return redirect('/login')
     
     # Extract name from email
-    email = session['user']
-    # Extract part before @ and format it
-    name_part = email.split('@')[0]
-    # Replace dots/underscores with spaces and capitalize each word
-    user_name = ' '.join(word.capitalize() for word in name_part.replace('_', ' ').replace('.', ' ').split())
+    if 'user' in session:
+        email = session['user']
+        user_name_param = extract_user_name(email)
+    elif session.get('view_only'):
+        # View-only mode - get email and name from view_only_email
+        email = session.get('view_only_email', 'Anonymous User')
+        user_name_param = extract_user_name(email) if '@' in email else 'Analytics Viewer'
+    else:
+        return redirect('/login')
     
-    return render_template('home.html', user_email=email, user_name=user_name)
+    return render_template('home.html', user_email=email, user_name=user_name_param, is_view_only=session.get('view_only', False))
+
+def extract_user_name(email):
+    """Extract and format user name from email"""
+    name_part = email.split('@')[0]
+    return ' '.join(word.capitalize() for word in name_part.replace('_', ' ').replace('.', ' ').split())
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -266,12 +285,14 @@ def input_page():
 
 @app.route('/analytics')
 def analytics():
-    if 'user' not in session:
+    # Check for regular user or view-only mode
+    if 'user' not in session and not session.get('view_only'):
         return redirect('/login')
     
+    is_view_only = session.get('view_only', False)
+    user_email = session.get('user') or session.get('view_only_email', '')
+    
     try:
-        user_email = session['user']
-        
         # Fetch all entries for the user
         entries_query = db.collection('entries').where(
             filter=FieldFilter('user_id', '==', user_email)
@@ -290,7 +311,7 @@ def analytics():
         # Calculate cycle data
         cycle_data = calculate_cycle_data(entries)
         
-        return render_template('analytics.html', cycle_data=cycle_data)
+        return render_template('analytics.html', cycle_data=cycle_data, is_view_only=is_view_only)
     except Exception as e:
         print(f"Error loading analytics: {e}")
         flash(f'Error loading analytics: {str(e)}')
@@ -299,12 +320,14 @@ def analytics():
 @app.route('/predictor')
 def predictor():
     """Cycle predictor and fertility tracker"""
-    if 'user' not in session:
+    # Check for regular user or view-only mode
+    if 'user' not in session and not session.get('view_only'):
         return redirect('/login')
     
+    is_view_only = session.get('view_only', False)
+    user_email = session.get('user') or session.get('view_only_email', '')
+    
     try:
-        user_email = session['user']
-        
         # Fetch all entries for the user
         entries_query = db.collection('entries').where(
             filter=FieldFilter('user_id', '==', user_email)
@@ -323,7 +346,7 @@ def predictor():
         # Calculate cycle data
         cycle_data = calculate_cycle_data(entries)
         
-        return render_template('predictor.html', cycle_data=cycle_data, entries=entries)
+        return render_template('predictor.html', cycle_data=cycle_data, entries=entries, is_view_only=is_view_only)
     except Exception as e:
         print(f"Error loading predictor: {e}")
         flash(f'Error loading predictor: {str(e)}')
@@ -558,12 +581,16 @@ def get_cycle_phase(day, cycle_length):
 @app.route('/entries')
 def entries():
     """View and manage all entries"""
-    if 'user' not in session:
+    # Check for regular user or view-only mode
+    if 'user' not in session and not session.get('view_only'):
         return redirect('/login')
+    
+    is_view_only = session.get('view_only', False)
+    user_email = session.get('user') or session.get('view_only_email', '')
     
     try:
         # Fetch all entries for the current user
-        docs = db.collection('entries').where(filter=FieldFilter('user_id', '==', session['user'])).stream()
+        docs = db.collection('entries').where(filter=FieldFilter('user_id', '==', user_email)).stream()
         entries_list = []
         
         for doc in docs:
@@ -574,7 +601,7 @@ def entries():
         # Sort by date in descending order (newest first)
         sort_entries_by_date(entries_list, reverse=True)
         
-        return render_template('entries.html', entries=entries_list)
+        return render_template('entries.html', entries=entries_list, is_view_only=is_view_only)
     except Exception as e:
         print(f"Error fetching entries: {e}")
         flash('Error loading entries')
@@ -610,11 +637,15 @@ def delete_entry(entry_id):
 
 @app.route('/analytics-data')
 def analytics_data():
-    if 'user' not in session:
+    # Check for regular user or view-only mode
+    if 'user' not in session and not session.get('view_only'):
         return jsonify({'error': 'Not logged in'}), 401
+    
+    # Get the user email (from either regular login or view-only mode)
+    user_email = session.get('user') or session.get('view_only_email', '')
 
     # Fetch entries without order_by to avoid index requirement
-    docs = db.collection('entries').where(filter=FieldFilter('user_id', '==', session['user'])).stream()
+    docs = db.collection('entries').where(filter=FieldFilter('user_id', '==', user_email)).stream()
     data = [doc.to_dict() for doc in docs]
     
     # Sort by date in Python
@@ -929,25 +960,20 @@ def view_analytics_login():
             
             for user_doc in users:
                 user_found = True
-                # Fetch entries for this user
-                docs = db.collection('entries').where(filter=FieldFilter('user_id', '==', email)).stream()
-                data = [normalize_entry_for_charts(doc.to_dict()) for doc in docs]
-                
-                # Sort by date in Python
-                sort_entries_by_date(data, reverse=False)
-                
-                # Set session for view-only mode
+                # Set view-only session
                 session['view_only'] = True
-                
-                return render_template('shared_analytics.html', data=data, view_mode=True, user_email=email)
+                session['view_only_email'] = email
+                session.modified = True  # Ensure Flask saves the session
+                # Redirect to home (view-only mode)
+                return redirect('/')
             
             if not user_found:
                 flash('User not found')
                 return redirect('/view-analytics-login')
                 
         except Exception as e:
-            print(f"Error fetching analytics: {e}")
-            flash('Error loading analytics data')
+            print(f"Error fetching user: {e}")
+            flash('Error loading user data')
             return redirect('/view-analytics-login')
     
     # GET request - display login form
@@ -964,16 +990,15 @@ def view_analytics(password):
         # Get first admin user's analytics for demo
         users = db.collection('users').where(filter=FieldFilter('email', '==', ADMIN_USERS[0])).stream()
         for user_doc in users:
-            # Fetch entries without order_by to avoid index requirement
-            docs = db.collection('entries').where(filter=FieldFilter('user_id', '==', user_doc.to_dict()['email'])).stream()
-            data = [normalize_entry_for_charts(doc.to_dict()) for doc in docs]
-            
-            # Sort by date in Python
-            sort_entries_by_date(data, reverse=False)
-            
-            return render_template('shared_analytics.html', data=data, view_mode=True)
+            admin_email = user_doc.to_dict()['email']
+            # Set view-only session
+            session['view_only'] = True
+            session['view_only_email'] = admin_email
+            session.modified = True  # Ensure Flask saves the session
+            # Redirect to home
+            return redirect('/')
     except Exception as e:
-        print(f"Error fetching analytics: {e}")
+        print(f"Error fetching admin user: {e}")
         flash('Error loading analytics data')
     
     return redirect('/view-analytics-mode')
@@ -984,5 +1009,36 @@ def logout():
     session.pop('view_only', None)
     return redirect('/login')
 
+# Error Handlers
+@app.errorhandler(404)
+def not_found(error):
+    """Handle 404 errors - page not found"""
+    print(f"404 Error: {request.path} not found")
+    flash('Page not found')
+    if 'user' in session:
+        return redirect('/')
+    return redirect('/login')
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle 500 errors - server error"""
+    print(f"500 Error: {str(error)}")
+    flash('An internal server error occurred')
+    return redirect('/login'), 500
+
+@app.errorhandler(403)
+def forbidden(error):
+    """Handle 403 errors - forbidden"""
+    flash('Access forbidden')
+    return redirect('/login'), 403
+
+@app.after_request
+def add_header(response):
+    """Add cache control headers"""
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=os.getenv('FLASK_DEBUG', 'False').lower() == 'true')

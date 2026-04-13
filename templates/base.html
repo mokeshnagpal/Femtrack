@@ -88,13 +88,14 @@
                 <img src="{{ url_for('static', filename='logo/femtrack_logo.png') }}" alt="Femtrack" style="height: 30px; margin-right: 10px;" onerror="this.style.display='none'">
                 <i class="fas fa-lotus"></i> Femtrack
             </a>
-            {% if session.user or session.get('view_only') %}
+            {% if session.get('user') or session.get('view_only') %}
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
-                    {% if session.user %}
+                    {% if session.get('user') %}
+                    <!-- Full navigation for logged-in users -->
                     <li class="nav-item">
                         <a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a>
                     </li>
@@ -115,6 +116,20 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/settings"><i class="fas fa-cog"></i> Settings</a>
+                    </li>
+                    {% elif session.get('view_only') %}
+                    <!-- Limited navigation for view-only users -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/entries"><i class="fas fa-list"></i> Entries</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/analytics"><i class="fas fa-chart-line"></i> Analytics</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/predictor"><i class="fas fa-star"></i> Predictor</a>
                     </li>
                     {% endif %}
                 </ul>

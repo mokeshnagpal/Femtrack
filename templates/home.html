@@ -6,6 +6,8 @@
 <!-- Greeting Section -->
 <div class="row mb-4">
     <div class="col-12">
+        <!-- Full user greeting -->
+        {% if not is_view_only %}
         <div class="card bg-gradient-primary text-white shadow">
             <div class="card-body p-4">
                 <h3 class="card-title mb-2">
@@ -17,6 +19,20 @@
                 </p>
             </div>
         </div>
+        {% else %}
+        <!-- View-only mode greeting -->
+        <div class="card bg-gradient-info text-white shadow">
+            <div class="card-body p-4">
+                <h3 class="card-title mb-2">
+                    <i class="fas fa-eye"></i> 
+                    View-Only Mode
+                </h3>
+                <p class="card-text mb-0">
+                    Viewing cycle data for <strong>{{ user_email }}</strong>. You can browse entries, analytics, and predictions in read-only mode.
+                </p>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 
@@ -58,6 +74,8 @@
 </div>
 
 <div class="row mt-5 g-4">
+    {% if not is_view_only %}
+    <!-- Full user options -->
     <div class="col-lg-4 col-md-6 col-sm-12">
         <div class="card h-100 text-center shadow">
             <div class="card-body">
@@ -68,6 +86,19 @@
             </div>
         </div>
     </div>
+    {% endif %}
+    
+    <div class="col-lg-4 col-md-6 col-sm-12">
+        <div class="card h-100 text-center shadow">
+            <div class="card-body">
+                <i class="fas fa-list fa-3x text-warning mb-3"></i>
+                <h5 class="card-title"><i class="fas fa-list"></i> View Entries</h5>
+                <p class="card-text">Browse all your tracked entries in detail with comprehensive information.</p>
+                <a href="/entries" class="btn btn-warning w-100">View Entries</a>
+            </div>
+        </div>
+    </div>
+    
     <div class="col-lg-4 col-md-6 col-sm-12">
         <div class="card h-100 text-center shadow">
             <div class="card-body">
@@ -78,22 +109,52 @@
             </div>
         </div>
     </div>
+    
     <div class="col-lg-4 col-md-6 col-sm-12">
         <div class="card h-100 text-center shadow">
             <div class="card-body">
-                <i class="fas fa-cog fa-3x text-info mb-3"></i>
-                <h5 class="card-title"><i class="fas fa-sliders-h"></i> Settings</h5>
-                <p class="card-text">Manage your account, change password, and configure sharing options.</p>
-                <a href="/settings" class="btn btn-info w-100">Settings</a>
+                <i class="fas fa-star fa-3x text-warning mb-3"></i>
+                <h5 class="card-title"><i class="fas fa-star"></i> Cycle Predictor</h5>
+                <p class="card-text">Get predictions for your next cycle and fertile window.</p>
+                <a href="/predictor" class="btn btn-warning w-100">Cycle Predictor</a>
             </div>
         </div>
     </div>
+    
+    {% if not is_view_only %}
+    <!-- Settings and Customize only for full users -->
+    <div class="col-lg-4 col-md-6 col-sm-12">
+        <div class="card h-100 text-center shadow">
+            <div class="card-body">
+                <i class="fas fa-sliders-h fa-3x text-info mb-3"></i>
+                <h5 class="card-title"><i class="fas fa-sliders-h"></i> Customize</h5>
+                <p class="card-text">Manage your symptoms, set defaults, and personalize your experience.</p>
+                <a href="/customize" class="btn btn-info w-100">Customize</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 col-md-6 col-sm-12">
+        <div class="card h-100 text-center shadow">
+            <div class="card-body">
+                <i class="fas fa-cog fa-3x text-secondary mb-3"></i>
+                <h5 class="card-title"><i class="fas fa-cog"></i> Settings</h5>
+                <p class="card-text">Manage your account, change password, and configure sharing options.</p>
+                <a href="/settings" class="btn btn-secondary w-100">Settings</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <div class="row mt-5">
     <div class="col-12">
         <div class="alert alert-info" role="alert">
+            {% if is_view_only %}
+            <i class="fas fa-eye"></i> <strong>View-Only Mode:</strong> You are viewing cycle data in read-only mode. To make changes, please log in with your account.
+            {% else %}
             <i class="fas fa-lightbulb"></i> <strong>Tip:</strong> Regular tracking helps you understand your cycle better and identify patterns that may be important for your health.
+            {% endif %}
         </div>
     </div>
 </div>
