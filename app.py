@@ -1039,6 +1039,3 @@ def add_header(response):
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
     return response
-
-if __name__ == "__main__":
-    app.run(debug=os.getenv('FLASK_DEBUG', 'False').lower() == 'true')
