@@ -21,26 +21,38 @@ document.addEventListener('DOMContentLoaded', function() {
     if (entryData.symptoms) {
         entryData.symptoms.forEach(function(symptom) {
             if (symptom.name === 'period') {
-                document.getElementById('period').checked = true;
-                if (symptom.flow_amount) {
-                    document.getElementById('flowAmount').value = symptom.flow_amount;
-                    document.getElementById('flowValue').textContent = symptom.flow_amount;
+                // Check if it has flow amount (I have my period today)
+                if (symptom.flow_amount || symptom.start_marked || symptom.start_time) {
+                    document.getElementById('period_track').checked = true;
+                    if (symptom.flow_amount) {
+                        document.getElementById('flowAmount').value = symptom.flow_amount;
+                        document.getElementById('flowValue').textContent = symptom.flow_amount;
+                    }
+                    if (symptom.start_marked) {
+                        document.getElementById('periodStart').checked = true;
+                        document.getElementById('startTimeSection').classList.remove('d-none');
+                    }
+                    if (symptom.start_time) {
+                        document.getElementById('startTime').value = symptom.start_time;
+                    }
+                    document.getElementById('periodDetailsSection').classList.remove('d-none');
+                    document.getElementById('periodTrackingSection').classList.remove('d-none');
                 }
-                if (symptom.start_marked) {
-                    document.getElementById('periodStart').checked = true;
-                    document.getElementById('startTimeSection').classList.remove('d-none');
-                }
+                
+                // Check if period has ended
                 if (symptom.end_marked) {
                     document.getElementById('periodEnd').checked = true;
+                    if (symptom.end_time) {
+                        document.getElementById('endTime').value = symptom.end_time;
+                    }
                     document.getElementById('endTimeSection').classList.remove('d-none');
+                    
+                    // If only end_marked exists without flow_amount, show period end section
+                    if (!symptom.flow_amount && !symptom.start_marked && !symptom.start_time) {
+                        document.getElementById('periodTrackingSection').classList.add('d-none');
+                        document.getElementById('periodEndSection').classList.remove('d-none');
+                    }
                 }
-                if (symptom.start_time) {
-                    document.getElementById('startTime').value = symptom.start_time;
-                }
-                if (symptom.end_time) {
-                    document.getElementById('endTime').value = symptom.end_time;
-                }
-                document.getElementById('periodSection').classList.remove('d-none');
             } else if (symptom.name === 'weird') {
                 document.getElementById('weird').checked = true;
                 if (symptom.intensity) {
@@ -59,15 +71,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById('irritationIntensity').value = symptom.intensity;
                 }
                 document.getElementById('irritationSection').classList.remove('d-none');
-            } else if (symptom.name === 'joint_pain') {
-                const elem = document.getElementById('joint_pain');
-                if (elem) {
-                    elem.checked = true;
-                    if (symptom.intensity) {
-                        document.getElementById('jointPainIntensity').value = symptom.intensity;
-                    }
-                    document.getElementById('jointPainSection').classList.remove('d-none');
-                }
             } else if (symptom.name === 'diarrhea') {
                 const elem = document.getElementById('diarrhea');
                 if (elem) {
@@ -87,14 +90,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const weirdCheckbox = document.getElementById('weird');
     const cravingCheckbox = document.getElementById('craving');
     const irritationCheckbox = document.getElementById('irritation');
-    const jointPainCheckbox = document.getElementById('joint_pain');
     const diarrheaCheckbox = document.getElementById('diarrhea');
     
     const periodSection = document.getElementById('periodDetailsSection');
     const weirdSection = document.getElementById('weirdSection');
     const cravingSection = document.getElementById('cravingSection');
     const irritationSection = document.getElementById('irritationSection');
-    const jointPainSection = document.getElementById('jointPainSection');
     const diarrheaSection = document.getElementById('diarrheaSection');
     
     const periodStartCheckbox = document.getElementById('periodStart');
@@ -108,9 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!this.checked) {
             document.getElementById('flowAmount').value = '5';
             periodStartCheckbox.checked = false;
-            periodEndCheckbox.checked = false;
             startTimeSection.classList.add('d-none');
-            endTimeSection.classList.add('d-none');
         }
     });
     
@@ -138,16 +137,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Toggle joint pain section
-    if (jointPainCheckbox) {
-        jointPainCheckbox.addEventListener('change', function() {
-            jointPainSection.classList.toggle('d-none', !this.checked);
-            if (!this.checked) {
-                document.getElementById('jointPainIntensity').value = '';
-            }
-        });
-    }
-    
     // Toggle diarrhea section
     if (diarrheaCheckbox) {
         diarrheaCheckbox.addEventListener('change', function() {
@@ -169,6 +158,46 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('endTime').value = '';
         }
     });
+    
+    // Conditional visibility: Period Tracking vs Period Ended
+    const periodTrackingSection = document.getElementById('periodTrackingSection');
+    const periodEndedSection = document.getElementById('periodEndSection');
+    
+    function updatePeriodSectionVisibility() {
+        const periodTrackChecked = periodCheckbox.checked;
+        const periodEndChecked = periodEndCheckbox.checked;
+        
+        // If "I have my period today" is checked, hide "Period Ended" section
+        if (periodTrackChecked) {
+            periodEndedSection.classList.add('d-none');
+            periodEndCheckbox.checked = false; // Uncheck "My period has ended"
+            endTimeSection.classList.add('d-none');
+        } else {
+            periodEndedSection.classList.remove('d-none');
+        }
+        
+        // If "My period has ended" is checked, hide "Period Tracking" section
+        if (periodEndChecked) {
+            periodTrackingSection.classList.add('d-none');
+            periodCheckbox.checked = false; // Uncheck "I have my period today"
+            periodSection.classList.add('d-none');
+            document.getElementById('flowAmount').value = '5';
+            periodStartCheckbox.checked = false;
+            startTimeSection.classList.add('d-none');
+        } else {
+            periodTrackingSection.classList.remove('d-none');
+        }
+        
+        // If neither is checked, show both
+        if (!periodTrackChecked && !periodEndChecked) {
+            periodTrackingSection.classList.remove('d-none');
+            periodEndedSection.classList.remove('d-none');
+        }
+    }
+    
+    // Add event listeners to update visibility
+    periodCheckbox.addEventListener('change', updatePeriodSectionVisibility);
+    periodEndCheckbox.addEventListener('change', updatePeriodSectionVisibility);
     
     // Update flow amount display
     const flowAmount = document.getElementById('flowAmount');
@@ -211,19 +240,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        // Check Joint Pain
-        if (jointPainCheckbox && jointPainCheckbox.checked) {
-            const jointPainIntensity = document.getElementById('jointPainIntensity').value;
-            if (!jointPainIntensity) {
-                isValid = false;
-                validationMessage.push('Please select intensity for "Joint Pain"');
-            }
-        }
-        
-        // Check if at least one symptom is selected (Period not part of visible symptoms)
-        if (!weirdCheckbox.checked && !cravingCheckbox.checked && 
-            !irritationCheckbox.checked && !(jointPainCheckbox && jointPainCheckbox.checked) && 
-            !(diarrheaCheckbox && diarrheaCheckbox.checked)) {
+        // Check if at least one symptom is selected
+        // Don't show error if period tracking or period ended is marked
+        if (!periodCheckbox.checked && !periodEndCheckbox.checked &&
+            !weirdCheckbox.checked && !cravingCheckbox.checked && 
+            !irritationCheckbox.checked && !(diarrheaCheckbox && diarrheaCheckbox.checked)) {
             isValid = false;
             validationMessage.push('Please select at least one symptom');
         }
@@ -296,7 +317,12 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
 
         <div class="card shadow-lg">
-            <div class="card-header bg-gradient-primary text-white text-center py-4">
+            <div class="card-header bg-gradient-primary text-white text-center py-4 position-relative">
+                <button type="button" class="btn btn-light btn-sm position-absolute top-50 end-0 translate-middle-y me-3" 
+                        id="helpBtn" data-bs-toggle="modal" data-bs-target="#helpModal" 
+                        title="Help" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-info-circle"></i>
+                </button>
                 <h3 class="mb-1">
                     {% if entry_to_edit %}
                     <i class="fas fa-edit"></i> Edit Entry
@@ -324,7 +350,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     
                     <!-- Period Tracking Section (Prominent) -->
-                    <div class="mb-4 p-3 rounded border-2 border-danger">
+                    <div id="periodTrackingSection" class="mb-4 p-3 rounded border-2 border-danger">
                         <h5 class="card-title fw-bold mb-3">
                             <i class="fas fa-droplet text-danger"></i> Period Tracking
                         </h5>
@@ -346,7 +372,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                             
                             <div class="mb-3">
-                                <h6 class="small fw-bold text-muted mb-2">MARK PERIOD PHASES</h6>
+                                <h6 class="small fw-bold text-muted mb-2">MARK START OF PERIOD</h6>
                                 <div class="form-check mb-2">
                                     <input class="form-check-input" type="checkbox" id="periodStart">
                                     <label class="form-check-label" for="periodStart">
@@ -357,18 +383,25 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <label for="startTime" class="form-label small">Start Time (optional)</label>
                                     <input type="time" class="form-control form-control-sm" id="startTime" name="start_time">
                                 </div>
-                                
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="periodEnd">
-                                    <label class="form-check-label" for="periodEnd">
-                                        <i class="fas fa-flag text-danger"></i> Mark as <strong>END</strong> of Period
-                                    </label>
-                                </div>
-                                <div id="endTimeSection" class="d-none ms-4 mt-3">
-                                    <label for="endTime" class="form-label small">End Time (optional)</label>
-                                    <input type="time" class="form-control form-control-sm" id="endTime" name="end_time">
-                                </div>
                             </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Period Ended Section -->
+                    <div id="periodEndSection" class="form-section border-success">
+                        <h5 class="card-title fw-bold mb-3">
+                            <i class="fas fa-heart text-success"></i> All Clear! 🎉
+                        </h5>
+                        <div class="form-check form-check-lg">
+                            <input class="form-check-input" type="checkbox" id="periodEnd" name="period_ended">
+                            <label class="form-check-label" for="periodEnd">
+                                <strong>My period has ended</strong>
+                            </label>
+                        </div>
+                        <small class="text-muted d-block mt-2">Check this to mark that your period has officially ended with no more flow</small>
+                        <div id="endTimeSection" class="d-none ms-4 mt-3">
+                            <label for="endTime" class="form-label small">End Time (optional)</label>
+                            <input type="time" class="form-control form-control-sm" id="endTime" name="end_time">
                         </div>
                     </div>
                     
@@ -405,14 +438,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <input class="form-check-input" type="checkbox" id="irritation" name="symptoms" value="irritation">
                                     <label class="form-check-label" for="irritation">
                                         <strong><i class="fas fa-face-angry text-success"></i> Irritation</strong>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="col-6 col-sm-6 col-md-4 col-lg-2">
-                                <div class="form-check form-check-lg">
-                                    <input class="form-check-input" type="checkbox" id="joint_pain" name="symptoms" value="joint_pain">
-                                    <label class="form-check-label" for="joint_pain">
-                                        <strong><i class="fas fa-bone text-muted"></i> Joint Pain</strong>
                                     </label>
                                 </div>
                             </div>
@@ -469,20 +494,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     </div>
                     
-                    <!-- Joint Pain Details -->
-                    <div id="jointPainSection" class="d-none form-section border-muted">
-                        <h6 class="fw-bold mb-3"><i class="fas fa-bone text-muted"></i> Joint Pain Details</h6>
-                        <div class="mb-3">
-                            <label for="jointPainIntensity" class="form-label fw-bold">Intensity</label>
-                            <select class="form-select" id="jointPainIntensity" name="joint_pain_intensity">
-                                <option value="">Select intensity level</option>
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
-                            </select>
-                        </div>
-                    </div>
-                    
                     <!-- Diarrhea Details -->
                     <div id="diarrheaSection" class="d-none form-section border-secondary">
                         <h6 class="fw-bold mb-3"><i class="fas fa-toilet text-secondary"></i> Diarrhea Noted</h6>
@@ -511,6 +522,83 @@ document.addEventListener('DOMContentLoaded', function() {
                         </a>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Help Modal -->
+<div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-light border-bottom">
+                <h5 class="modal-title fw-bold" id="helpModalLabel">
+                    <i class="fas fa-question-circle text-primary"></i> How to Use
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="help-section mb-4">
+                    <h6 class="fw-bold text-primary mb-2"><i class="fas fa-calendar text-primary"></i> Date</h6>
+                    <p class="small mb-0">Select the date for your entry. Defaults to today.</p>
+                </div>
+
+                <div class="help-section mb-4">
+                    <h6 class="fw-bold text-danger mb-2"><i class="fas fa-droplet text-danger"></i> I have my period today</h6>
+                    <p class="small mb-2">Check this if you're having your period on this date.</p>
+                    <ul class="small mb-0 ps-3">
+                        <li><strong>Flow Amount:</strong> Rate your period flow (1=light, 10=very heavy)</li>
+                        <li><strong>Mark as START:</strong> Check if this is your first day of period</li>
+                        <li><strong>Mark as START time:</strong> (Optional) Record the time it started</li>
+                    </ul>
+                </div>
+
+                <div class="help-section mb-4">
+                    <h6 class="fw-bold text-success mb-2"><i class="fas fa-heart text-success"></i> All Clear! 🎉</h6>
+                    <p class="small mb-2">Check this when your period has completely ended. No more flow!</p>
+                    <ul class="small mb-0 ps-3">
+                        <li><strong>End time:</strong> (Optional) Record when your period officially ended</li>
+                    </ul>
+                </div>
+
+                <div class="help-section mb-4">
+                    <p class="small text-muted mb-3">
+                        <strong>Some symptoms you might experience:</strong>
+                    </p>
+                    <div class="mb-3">
+                        <h6 class="fw-bold text-warning mb-0"><i class="fas fa-face-dizzy text-warning"></i> Feeling Weird</h6>
+                    </div>
+                    <div class="mb-3">
+                        <h6 class="fw-bold text-info mb-0"><i class="fas fa-candy text-info"></i> Craving</h6>
+                    </div>
+                    <div class="mb-3">
+                        <h6 class="fw-bold text-success mb-0"><i class="fas fa-face-angry text-success"></i> Irritation</h6>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold text-secondary mb-0"><i class="fas fa-toilet text-secondary"></i> Diarrhea</h6>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <div class="alert alert-info mb-0" role="alert">
+                    <h6 class="alert-heading small fw-bold mb-2">
+                        <i class="fas fa-info-circle"></i> Symptoms Anytime
+                    </h6>
+                    <p class="small mb-0">
+                        You can track symptoms <strong>before, during, or after</strong> your period. You might notice patterns like:
+                    </p>
+                    <ul class="small mt-2 mb-0 ps-3">
+                        <li><strong>Before:</strong> Irritation, cravings, bloating</li>
+                        <li><strong>During:</strong> Period, fatigue, diarrhea</li>
+                        <li><strong>After:</strong> Energy boost, mood improvement</li>
+                    </ul>
+                </div>
+
+                <hr class="my-4">
+                <p class="small text-muted mb-0">
+                    <i class="fas fa-lightbulb text-warning"></i> <strong>Tip:</strong> You don't need to fill everything. Track only what's relevant to you!
+                </p>
             </div>
         </div>
     </div>
@@ -624,6 +712,136 @@ html[data-bs-theme="dark"] #validationErrorBox.alert-danger {
 
 html[data-bs-theme="dark"] #validationErrorBox .alert-heading {
     color: #f8d7da;
+}
+
+/* Help Modal Styling */
+.modal-content {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    border-color: var(--border-color);
+}
+
+.modal-header {
+    background-color: var(--bg-light) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color);
+}
+
+.modal-body {
+    background-color: var(--card-bg);
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.modal-title {
+    color: var(--text-color);
+}
+
+.help-section {
+    padding: 0.75rem 0;
+}
+
+.help-section ul {
+    line-height: 1.8;
+}
+
+.help-section li {
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+}
+
+/* Help button styling */
+#helpBtn {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    border: none !important;
+    color: #667eea !important;
+    transition: all 0.3s ease;
+}
+
+#helpBtn:hover {
+    background-color: #fff !important;
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+#helpBtn:focus {
+    box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25) !important;
+}
+
+/* Dark mode specific styling for modal */
+html[data-bs-theme="dark"] .modal-header {
+    background-color: #2d2d2d !important;
+    border-color: #404040 !important;
+}
+
+html[data-bs-theme="dark"] .modal-content {
+    background-color: #2d2d2d;
+    border-color: #404040;
+}
+
+html[data-bs-theme="dark"] .modal-title {
+    color: #e0e0e0;
+}
+
+html[data-bs-theme="dark"] .help-section h6 {
+    color: #e0e0e0;
+}
+
+html[data-bs-theme="dark"] .help-section p,
+html[data-bs-theme="dark"] .help-section li {
+    color: #b0b0b0;
+}
+
+html[data-bs-theme="dark"] hr {
+    border-color: #404040;
+}
+
+/* Help modal alert styling */
+.modal-body .alert-info {
+    background-color: rgba(102, 126, 234, 0.1);
+    border-color: #667eea;
+    border-left: 4px solid #667eea;
+    color: var(--text-color);
+}
+
+.modal-body .alert-info .alert-heading {
+    color: var(--text-color);
+}
+
+html[data-bs-theme="dark"] .modal-body .alert-info {
+    background-color: rgba(102, 126, 234, 0.15);
+    border-color: #7a8de8;
+    color: #b0b0b0;
+}
+
+html[data-bs-theme="dark"] .modal-body .alert-info .alert-heading {
+    color: #e0e0e0;
+}
+
+html[data-bs-theme="dark"] .modal-body .alert-info ul li {
+    color: #b0b0b0;
+}
+
+/* Scrollbar styling for modal body */
+.modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+    background-color: var(--bg-light);
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+    background-color: #667eea;
+    border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+    background-color: #764ba2;
+}
+
+html[data-bs-theme="dark"] .modal-body::-webkit-scrollbar-track {
+    background-color: #1a1a1a;
 }
 </style>
 {% endblock %}

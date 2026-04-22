@@ -38,7 +38,7 @@ VIEW_PASS=Mokesh87654321
 - **Date**: Auto-formatted display as "15 January 2024"
 - **Flow Amount**: 1-10 scale with visual indicators
 - **Intensity**: Low/Medium/High selection
-- **Symptoms**: Multi-select checkboxes (period, craving, irritation, joint_pain, diarrhea, weird)
+- **Symptoms**: Multi-select checkboxes (period, craving, irritation, diarrhea, weird)
 - **Period Start**: Mark first day of menstruation
 - **Notes**: Optional additional notes
 - **Smart Validation**: Prevents duplicate entries

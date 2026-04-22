@@ -31,8 +31,6 @@
                                             <img src="{{ url_for('static', filename='icons/craving.svg') }}" alt="Craving" class="symptom-icon text-info">
                                         {% elif symptom.name == 'irritation' %}
                                             <img src="{{ url_for('static', filename='icons/irritation.svg') }}" alt="Irritation" class="symptom-icon text-success">
-                                        {% elif symptom.name == 'joint_pain' %}
-                                            <img src="{{ url_for('static', filename='icons/joint_pain.svg') }}" alt="Joint Pain" class="symptom-icon text-muted">
                                         {% elif symptom.name == 'headache' %}
                                             <img src="{{ url_for('static', filename='icons/headache.svg') }}" alt="Headache" class="symptom-icon text-primary">
                                         {% else %}

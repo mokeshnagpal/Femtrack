@@ -191,17 +191,24 @@ def input_page():
                 data["created_at"] = datetime.now()
             
             # Process Period symptom if selected
-            if 'period' in symptoms:
-                flow_amount = request.form.get('flow_amount', '')
-                
+            has_period = 'period' in symptoms
+            period_ended = request.form.get('period_ended') == 'on'
+            
+            if has_period or period_ended:
                 period_data = {
-                    "name": "period",
-                    "flow_amount": int(flow_amount) if flow_amount else None,
-                    "start_marked": request.form.get('periodStart') == 'on',
-                    "end_marked": request.form.get('periodEnd') == 'on',
-                    "start_time": request.form.get('start_time', '') or None,
-                    "end_time": request.form.get('end_time', '') or None
+                    "name": "period"
                 }
+                
+                if has_period:
+                    flow_amount = request.form.get('flow_amount', '')
+                    period_data["flow_amount"] = int(flow_amount) if flow_amount else None
+                    period_data["start_marked"] = request.form.get('periodStart') == 'on'
+                    period_data["start_time"] = request.form.get('start_time', '') or None
+                    
+                if period_ended:
+                    period_data["end_marked"] = True
+                    period_data["end_time"] = request.form.get('end_time', '') or None
+                
                 data["symptoms"].append(period_data)
             
             # Process Feeling Weird symptom if selected
@@ -226,14 +233,6 @@ def input_page():
                 data["symptoms"].append({
                     "name": "irritation",
                     "intensity": irritation_intensity
-                })
-            
-            # Process Joint Pain symptom if selected
-            if 'joint_pain' in symptoms:
-                joint_pain_intensity = request.form.get('joint_pain_intensity', '')
-                data["symptoms"].append({
-                    "name": "joint_pain",
-                    "intensity": joint_pain_intensity
                 })
             
             # Process Diarrhea symptom if selected
@@ -865,7 +864,6 @@ def customize():
                 'weird_intensity': request.form.get('default_weird_intensity', ''),
                 'craving_intensity': request.form.get('default_craving_intensity', ''),
                 'irritation_intensity': request.form.get('default_irritation_intensity', ''),
-                'joint_pain_intensity': request.form.get('default_joint_pain_intensity', ''),
                 'diarrhea_intensity': request.form.get('default_diarrhea_intensity', '')
             }
             
@@ -892,8 +890,7 @@ def customize():
             {'name': 'date', 'display_name': 'Date', 'has_intensity': False, 'system_default': True},
             {'name': 'weird', 'display_name': 'Feeling Weird', 'has_intensity': True, 'system_default': True},
             {'name': 'craving', 'display_name': 'Craving', 'has_intensity': True, 'system_default': True},
-            {'name': 'irritation', 'display_name': 'Irritation', 'has_intensity': True, 'system_default': True},
-            {'name': 'joint_pain', 'display_name': 'Joint Pain', 'has_intensity': True, 'system_default': True}
+            {'name': 'irritation', 'display_name': 'Irritation', 'has_intensity': True, 'system_default': True}
         ]
         
         # Get user's overrides and disabled symptoms
@@ -1039,3 +1036,6 @@ def add_header(response):
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
     return response
+
+if __name__ == "__main__":
+    app.run(debug=True)
