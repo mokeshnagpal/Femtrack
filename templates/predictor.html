@@ -1,76 +1,107 @@
 {% extends "base.html" %}
+{% import "macros.html" as components %}
+
+{% block title %}Forecast - Femtrack{% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Format date from ISO format to "DD Month YYYY"
-    function formatDate(isoDate) {
-        const date = new Date(isoDate + 'T00:00:00');
-        const options = { year: 'numeric', month: 'long', day: 'numeric' };
-        return date.toLocaleDateString('en-US', options);
+    document.addEventListener('DOMContentLoaded', function () {
+        function formatDate(isoDate) {
+            if (!isoDate) return 'N/A';
+            const date = new Date(isoDate + 'T00:00:00');
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            return date.toLocaleDateString('en-US', options);
+        }
+
+        const cycleData = {{ cycle_data | tojson
+    }};
+    const chartTheme = getForecastChartTheme();
+    Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+    Chart.defaults.color = chartTheme.textColor;
+
+    function getForecastChartTheme() {
+        const styles = getComputedStyle(document.documentElement);
+        const textColor = (styles.getPropertyValue('--text-color') || '#27212b').trim();
+        const borderColor = (styles.getPropertyValue('--border-color') || '#e7dfe4').trim();
+        return {
+            textColor,
+            gridColor: document.documentElement.getAttribute('data-bs-theme') === 'dark'
+                ? 'rgba(255, 255, 255, 0.16)'
+                : 'rgba(39, 33, 43, 0.18)',
+            borderColor
+        };
     }
 
-    // Get data from template
-    const cycleData = {{ cycle_data | tojson }};
+    function themedForecastScales(extraY = {}) {
+        const tickOverrides = extraY.ticks || {};
+        const yOptions = { ...extraY };
+        delete yOptions.ticks;
+        return {
+            x: {
+                ticks: { color: chartTheme.textColor, font: { weight: 600 } },
+                grid: { color: chartTheme.gridColor, drawBorder: true },
+                border: { color: chartTheme.borderColor }
+            },
+            y: {
+                ...yOptions,
+                ticks: { color: chartTheme.textColor, font: { weight: 600 }, ...tickOverrides },
+                grid: { color: chartTheme.gridColor, drawBorder: true },
+                border: { color: chartTheme.borderColor }
+            }
+        };
+    }
+
+    function themedForecastLegend() {
+        return { labels: { color: chartTheme.textColor, font: { weight: 600 } } };
+    }
+
     const timelineData = cycleData && cycleData.timeline ? cycleData.timeline : [];
     const prevCycleData = timelineData.filter(d => d.cycle === 'previous');
     const currentCycleData = timelineData.filter(d => d.cycle === 'current');
     const nextCycleData = timelineData.filter(d => d.cycle === 'next');
 
-    // Function to create cycle timeline visualization
+    // Create cycle timeline visualization
     function createCycleTimeline(containerId, cycleDataObj, title) {
         const container = document.getElementById(containerId);
         if (!container || !Array.isArray(cycleDataObj)) return;
 
-        // Get actual ovulation day from cycle data (available globally)
-        const actualOvulationDay = cycleData.actual_ovulation_day || 14;
+        const actualOvulationDay = cycleData.average_ovulation_day || 14;
         const cycleLength = cycleData.average_cycle_length || 28;
 
-        // Function to calculate color intensity based on phase and day
         function getPhaseColor(day, phase, ovulationDay, cycle_length) {
             let baseColor = '#6c757d';
-            let intensity = 0.3; // Default low intensity
+            let intensity = 0.3;
             let phaseName = 'Unknown';
 
-            switch(phase) {
+            switch (phase) {
                 case 'menstruation':
-                    // Safe sex period - low fertility throughout (days 1-5)
-                    // Slight variation but stays in safe range
-                    const periodProgress = Math.min((day - 1) / 4, 1); // 0 to 1 over 5 days
-                    intensity = Math.max(0.5 - (periodProgress * 0.1), 0.3); // 0.5 to 0.3 (safe range)
-                    baseColor = '#b02a37'; // Deep wine red
-                    phaseName = 'Safe Sex (Period)';
+                    const periodProgress = Math.min((day - 1) / 4, 1);
+                    intensity = Math.max(0.5 - (periodProgress * 0.1), 0.3);
+                    baseColor = '#b02a37'; // Wine red
+                    phaseName = 'Menstruation (Period)';
                     break;
-
                 case 'follicular':
-                    // Gradually increases toward ovulation
-                    const follicularProgress = (day - 5) / 8; // Days 6-13
-                    intensity = 0.45 + (follicularProgress * 0.45); // 0.45 to 0.9
-                    baseColor = '#d39e00'; // Rich golden yellow
-                    phaseName = 'Building Phase';
+                    const follicularProgress = (day - 5) / 8;
+                    intensity = 0.4 + (follicularProgress * 0.4); // 0.4 to 0.8
+                    baseColor = '#d39e00'; // Golden yellow
+                    phaseName = 'Follicular Phase';
                     break;
-
                 case 'ovulation':
-                    // Peak at actual ovulation day (100%), decreases on either side
                     const distanceFromPeak = Math.abs(day - ovulationDay);
-                    intensity = Math.max(1.0 - (distanceFromPeak * 0.15), 0.55); // Peak at 1.0, minimum 0.55
-                    baseColor = '#d35400'; // Deep orange
-                    phaseName = 'Fertility Peak';
+                    intensity = Math.max(1.0 - (distanceFromPeak * 0.15), 0.6);
+                    baseColor = '#d35400'; // Orange
+                    phaseName = 'Ovulation (Peak Fertility)';
                     break;
-
                 case 'luteal':
-                    // Safe sex period - low fertility throughout (after ovulation)
-                    // Slight variation but stays in safe range
                     const lutealProgress = (day - ovulationDay - 1) / (cycle_length - ovulationDay - 1);
-                    intensity = Math.max(0.5 - (lutealProgress * 0.1), 0.3); // 0.5 to 0.3 (safe range)
-                    baseColor = '#1e7e34'; // Deep forest green
-                    phaseName = 'Safe Sex (Post-Ovulation)';
+                    intensity = Math.max(0.5 - (lutealProgress * 0.1), 0.3);
+                    baseColor = '#1e7e34'; // Green
+                    phaseName = 'Luteal Phase (Safe)';
                     break;
             }
 
-            // Clamp intensity between 0.3 and 1.0
             intensity = Math.max(0.3, Math.min(1.0, intensity));
-
             return { baseColor, intensity, phaseName };
         }
 
@@ -79,20 +110,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 <h6 class="timeline-title">${title}</h6>
                 ${title.includes('Current & Upcoming') ? `
                 <div class="timeline-legend" style="text-align: center; margin-bottom: 10px; font-size: 12px;">
-                    <span style="color: #28a745; font-weight: bold;">● Actual Data</span> 
-                    <span style="color: #6c757d; font-weight: bold;">● Calculated</span>
+                    <span style="color: #28a745; font-weight: bold;">● Actual Tracking</span> 
+                    <span style="color: #6c757d; font-weight: bold;">● Predictions</span>
                 </div>
                 ` : ''}
                 <div class="cycle-timeline">
                     ${cycleDataObj.map(day => {
-                        const { baseColor, intensity, phaseName } = getPhaseColor(day.day, day.phase, actualOvulationDay, cycleLength);
-                        const isPredicted = day.cycle === 'next';
-                        const isCalculated = day.cycle === 'next' || (day.cycle === 'current' && day.is_future);
+            const { baseColor, intensity, phaseName } = getPhaseColor(day.day, day.phase, actualOvulationDay, cycleLength);
+            const isPredicted = day.cycle === 'next';
+            const isCalculated = day.cycle === 'next' || (day.cycle === 'current' && day.is_future);
+            const colorWithIntensity = adjustColorIntensity(baseColor, intensity);
 
-                        // Apply intensity to color
-                        const colorWithIntensity = adjustColorIntensity(baseColor, intensity);
-
-                        return `
+            return `
                             <div class="timeline-day ${isPredicted ? 'predicted' : ''} ${isCalculated ? 'calculated' : 'actual'}"
                                  data-day="${day.day}"
                                  data-date="${day.date}"
@@ -100,78 +129,57 @@ document.addEventListener('DOMContentLoaded', function() {
                                  data-intensity="${intensity.toFixed(2)}"
                                  data-cycle="${day.cycle}"
                                  style="--phase-color: ${colorWithIntensity}">
-                                <div class="day-line" style="background-color: ${colorWithIntensity}${isPredicted ? '80' : ''}"></div>
-                                <div class="day-number ${isCalculated ? 'calculated-text' : 'actual-text'}">${day.day}</div>
+                                 <div class="day-line" style="background-color: ${colorWithIntensity}${isPredicted ? '80' : ''}"></div>
+                                 <div class="day-number ${isCalculated ? 'calculated-text' : 'actual-text'}">${day.day}</div>
                             </div>
                         `;
-                    }).join('')}
+        }).join('')}
                 </div>
             </div>
         `;
 
-        // Function to adjust color intensity
         function adjustColorIntensity(hexColor, intensity) {
-            // Convert hex to RGB
             const r = parseInt(hexColor.slice(1, 3), 16);
             const g = parseInt(hexColor.slice(3, 5), 16);
             const b = parseInt(hexColor.slice(5, 7), 16);
-
-            // Use intensity to blend toward white for lower values and keep deep color for high values
             const adjustedR = Math.round(255 - (255 - r) * intensity);
             const adjustedG = Math.round(255 - (255 - g) * intensity);
             const adjustedB = Math.round(255 - (255 - b) * intensity);
-
-            // Convert back to hex
             return `#${adjustedR.toString(16).padStart(2, '0')}${adjustedG.toString(16).padStart(2, '0')}${adjustedB.toString(16).padStart(2, '0')}`;
         }
 
-        // Add hover tooltips
+        // Setup Tooltips
         container.querySelectorAll('.timeline-day').forEach(day => {
             let moveHandler = null;
-            
-            day.addEventListener('mouseenter', function(e) {
+            day.addEventListener('mouseenter', function (e) {
                 const tooltip = document.createElement('div');
                 tooltip.className = 'timeline-tooltip';
-                
+
                 const dayNum = parseInt(this.dataset.day);
                 const phase = this.dataset.phase;
                 const date = this.dataset.date;
-                const cycleType = this.dataset.cycle;
-                const intensity = parseFloat(this.dataset.intensity) * 100; // Convert to percentage
-                
-                // Determine if this is calculated or actual data
+                const intensityVal = parseFloat(this.dataset.intensity) * 100;
+
                 const isCalculated = this.classList.contains('calculated');
-                const dataType = isCalculated ? '🔮 Calculated' : '✅ Actual';
-                
-                // Enhanced tooltip content with intensity information
+                const dataType = isCalculated ? '🔮 Predicted' : '✅ Tracked';
+
                 let safetyInfo = '';
-                let phaseDetails = '';
-                let intensityDescription = '';
-                let intensityLabel = intensity >= 85 ? 'High intensity' : intensity >= 60 ? 'Medium intensity' : 'Low intensity';
-                
-                switch(phase) {
-                    case 'Safe Sex (Period)':
-                        safetyInfo = '🔴 High safety for contraception';
-                        phaseDetails = 'Menstruation phase - Non-ovulation chance';
-                        intensityDescription = `${intensityLabel}: ${intensity.toFixed(0)}%`;
-                        break;
-                    case 'Building Phase':
-                        safetyInfo = '🟡 Moderate fertility building';
-                        phaseDetails = 'Follicular phase - Estrogen rising';
-                        intensityDescription = `${intensityLabel}: ${intensity.toFixed(0)}%`;
-                        break;
-                    case 'Fertility Peak':
-                        safetyInfo = '🟠 High fertility window';
-                        phaseDetails = 'Ovulation phase - Peak fertility';
-                        intensityDescription = `${intensityLabel}: ${intensity.toFixed(0)}%`;
-                        break;
-                    case 'Safe Sex (Post-Ovulation)':
-                        safetyInfo = '🟢 High safety for contraception';
-                        phaseDetails = 'Luteal phase - Non-ovulation chance';
-                        intensityDescription = `${intensityLabel}: ${intensity.toFixed(0)}%`;
-                        break;
+                let details = '';
+
+                if (phase.includes('Period')) {
+                    safetyInfo = '🔴 Low fertility (contraception safe)';
+                    details = 'Menstrual bleeding - low risk of pregnancy';
+                } else if (phase.includes('Follicular')) {
+                    safetyInfo = '🟡 Moderate fertility risk';
+                    details = 'Follicular phase - eggs are maturing';
+                } else if (phase.includes('Ovulation')) {
+                    safetyInfo = '⚡ PEAK fertility window';
+                    details = 'Ovulation day - highest pregnancy risk';
+                } else {
+                    safetyInfo = '🟢 Low fertility (contraception safe)';
+                    details = 'Luteal phase - post-ovulatory non-fertile days';
                 }
-                
+
                 tooltip.innerHTML = `
                     <div class="tooltip-header">
                         <strong>Day ${dayNum}</strong>
@@ -179,80 +187,49 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="tooltip-body">
                         <div class="tooltip-phase">${phase}</div>
-                        <div class="tooltip-intensity">${intensityDescription}</div>
+                        <div class="tooltip-intensity">Fertility Rank: ${intensityVal.toFixed(0)}%</div>
                         <div class="tooltip-safety">${safetyInfo}</div>
-                        <div class="tooltip-details">${phaseDetails}</div>
-                        <div class="tooltip-type">
-                            <em>${dataType}</em>
-                        </div>
+                        <div class="tooltip-details">${details}</div>
+                        <div class="tooltip-type"><em>${dataType}</em></div>
                     </div>
                 `;
-                
+
                 document.body.appendChild(tooltip);
 
-                // Get tooltip dimensions after it's added to DOM
                 const tooltipRect = tooltip.getBoundingClientRect();
-                
-                // Position tooltip relative to mouse cursor
-                let left = e.clientX + 15; // Position to the right of cursor
-                let top = e.clientY - 10; // Position slightly above cursor
-                
-                // If tooltip would go off-screen horizontally, position it to the left of cursor
+                let left = e.clientX + 15;
+                let top = e.clientY - 10;
+
                 if (left + tooltipRect.width > window.innerWidth - 10) {
                     left = Math.max(10, e.clientX - tooltipRect.width - 15);
                 }
-                
-                // If tooltip would go off-screen vertically below, position it above cursor
                 if (top + tooltipRect.height > window.innerHeight - 10) {
                     top = e.clientY - tooltipRect.height - 15;
                 }
-                
-                // Ensure tooltip doesn't go above viewport
-                if (top < 10) {
-                    top = e.clientY + 25;
-                }
-                
-                // Ensure left position is within bounds
-                left = Math.max(10, left);
-                
                 tooltip.style.left = left + 'px';
                 tooltip.style.top = top + 'px';
-                
-                // Create handler for mouse move to follow cursor
+
                 moveHandler = (moveEvent) => {
                     const currentTooltip = document.querySelector('.timeline-tooltip');
                     if (!currentTooltip) return;
-                    
-                    let newLeft = moveEvent.clientX + 15;
-                    let newTop = moveEvent.clientY - 10;
-                    
-                    const currentTooltipRect = currentTooltip.getBoundingClientRect();
-                    
-                    if (newLeft + currentTooltipRect.width > window.innerWidth - 10) {
-                        newLeft = Math.max(10, moveEvent.clientX - currentTooltipRect.width - 15);
+                    let nLeft = moveEvent.clientX + 15;
+                    let nTop = moveEvent.clientY - 10;
+                    const r = currentTooltip.getBoundingClientRect();
+                    if (nLeft + r.width > window.innerWidth - 10) {
+                        nLeft = Math.max(10, moveEvent.clientX - r.width - 15);
                     }
-                    if (newTop + currentTooltipRect.height > window.innerHeight - 10) {
-                        newTop = moveEvent.clientY - currentTooltipRect.height - 15;
+                    if (nTop + r.height > window.innerHeight - 10) {
+                        nTop = moveEvent.clientY - r.height - 15;
                     }
-                    if (newTop < 10) {
-                        newTop = moveEvent.clientY + 25;
-                    }
-                    newLeft = Math.max(10, newLeft);
-                    
-                    currentTooltip.style.left = newLeft + 'px';
-                    currentTooltip.style.top = newTop + 'px';
+                    currentTooltip.style.left = nLeft + 'px';
+                    currentTooltip.style.top = nTop + 'px';
                 };
-                
-                // Add mousemove listener to update tooltip position
                 document.addEventListener('mousemove', moveHandler);
             });
 
-            day.addEventListener('mouseleave', function() {
+            day.addEventListener('mouseleave', function () {
                 const tooltip = document.querySelector('.timeline-tooltip');
-                if (tooltip) {
-                    tooltip.remove();
-                }
-                // Remove mousemove listener
+                if (tooltip) tooltip.remove();
                 if (moveHandler) {
                     document.removeEventListener('mousemove', moveHandler);
                     moveHandler = null;
@@ -261,473 +238,440 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Create timeline visualizations
-    createCycleTimeline('prevCycleTimeline', prevCycleData, 'Previous Cycle Timeline');
-    createCycleTimeline('currentCycleTimeline', [...currentCycleData, ...nextCycleData], 'Current & Upcoming Cycle Timeline');
+    if (prevCycleData.length > 0) {
+        createCycleTimeline('prevCycleTimeline', prevCycleData, 'Previous Period Timeline');
+    }
+    createCycleTimeline('currentCycleTimeline', [...currentCycleData, ...nextCycleData], 'Current & Upcoming Period Timeline');
+
+    // Parse past cycles for trends
+    const previousCycles = (cycleData.previous_cycles || []).slice().reverse(); // oldest first
+    if (previousCycles.length > 0) {
+        const cycleLabels = previousCycles.map((c, i) => `Cycle ${i + 1}`);
+        const cycleLengths = previousCycles.map(c => c.length);
+        const ovulationDays = previousCycles.map(c => Math.max(1, c.length - 14));
+
+        const ctxTrends = document.getElementById('cycleTrendsChart').getContext('2d');
+        new Chart(ctxTrends, {
+            type: 'line',
+            data: {
+                labels: cycleLabels,
+                datasets: [
+                    {
+                        label: 'Cycle Length (Days)',
+                        data: cycleLengths,
+                        borderColor: '#9f2f55',
+                        backgroundColor: 'rgba(159, 47, 85, 0.12)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false
+                    },
+                    {
+                        label: 'Ovulation Day',
+                        data: ovulationDays,
+                        borderColor: '#fd7e14',
+                        backgroundColor: 'rgba(253, 126, 20, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: themedForecastLegend() },
+                scales: themedForecastScales({ beginAtZero: true })
+            }
+        });
+    } else {
+        const trendsEl = document.getElementById('cycleTrendsChart');
+        if (trendsEl) {
+            trendsEl.parentElement.innerHTML = '<div class="text-center py-5 text-muted">Not enough cycle data for trend mapping.</div>';
+        }
+    }
+
+    // Parse current cycle timeline for probability curve
+    if (currentCycleData.length > 0) {
+        const labels = currentCycleData.map(d => `Day ${d.day}`);
+        const probabilities = currentCycleData.map(d => {
+            const day = d.day;
+            const pLen = cycleData.average_period_length || 5;
+            const actualOvulationDay = cycleData.average_ovulation_day || 14;
+            const cycleLength = cycleData.average_cycle_length || 28;
+
+            if (day <= pLen) return 30;
+            if (day < actualOvulationDay - 5) return 40;
+            if (day <= actualOvulationDay + 1) {
+                const distance = Math.abs(day - actualOvulationDay);
+                return Math.max(50, 100 - distance * 15);
+            }
+            if (day <= cycleLength) return 30;
+            return 20;
+        });
+
+        const ctxProb = document.getElementById('fertilityProbabilityChart').getContext('2d');
+        new Chart(ctxProb, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Fertility Probability (%)',
+                    data: probabilities,
+                    borderColor: '#c05621',
+                    backgroundColor: 'rgba(192, 86, 33, 0.12)',
+                    borderWidth: 3,
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: themedForecastLegend() },
+                scales: themedForecastScales({ beginAtZero: true, max: 100 })
+            }
+        });
+    } else {
+        const probEl = document.getElementById('fertilityProbabilityChart');
+        if (probEl) {
+            probEl.parentElement.innerHTML = '<div class="text-center py-5 text-muted">No ongoing cycle timeline.</div>';
+        }
+    }
 });
 </script>
 <style>
-.cycle-timeline-container {
-    padding: 15px;
-}
+    .cycle-timeline-container {
+        padding: 15px;
+    }
 
-.timeline-title {
-    text-align: center;
-    margin-bottom: 15px;
-    font-weight: bold;
-    color: var(--text-color);
-}
+    .timeline-title {
+        text-align: center;
+        margin-bottom: 15px;
+        font-weight: bold;
+        color: var(--text-color);
+    }
 
-.cycle-timeline {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2px;
-    justify-content: center;
-    padding: 10px;
-    background: var(--card-bg);
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-}
+    .cycle-timeline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+        justify-content: center;
+        padding: 10px;
+        background: var(--card-bg);
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+    }
 
-.timeline-day {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    cursor: pointer;
-    transition: transform 0.2s ease;
-}
+    .timeline-day {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+    }
 
-.timeline-day:hover {
-    transform: scale(1.1);
-    z-index: 10;
-}
+    .timeline-day:hover {
+        transform: scale(1.15);
+        z-index: 10;
+    }
 
-.timeline-day.predicted {
-    opacity: 0.8;
-}
+    .day-line {
+        width: 22px;
+        height: 44px;
+        border-radius: 3px;
+        margin-bottom: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    }
 
-.timeline-day.predicted .day-line {
-    border-style: dashed;
-    border-width: 2px 0;
-    background: transparent;
-}
+    .day-number {
+        font-size: 10px;
+        font-weight: bold;
+        color: var(--text-color);
+    }
 
-.day-line {
-    width: 20px;
-    height: 40px;
-    border-radius: 2px;
-    margin-bottom: 4px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-    transition: all 0.2s ease;
-}
+    .day-number.actual-text {
+        color: #28a745;
+    }
 
-.day-number {
-    font-size: 10px;
-    font-weight: bold;
-    color: var(--text-color);
-    text-align: center;
-    min-width: 20px;
-}
+    .timeline-day.predicted .day-line {
+        border-style: dashed;
+        border-width: 2px;
+    }
 
-.day-number.actual-text {
-    color: #28a745; /* Green for actual data */
-}
+    .timeline-day.calculated .day-line {
+        border: 1px solid rgba(108, 117, 125, 0.3);
+    }
 
-.timeline-day.calculated .day-line {
-    border: 1px solid rgba(108, 117, 125, 0.3);
-    border-radius: 1px;
-}
+    .timeline-day.actual .day-line {
+        border: 1px solid rgba(40, 167, 69, 0.3);
+    }
 
-.timeline-day.actual .day-line {
-    border: 1px solid rgba(40, 167, 69, 0.3);
-    border-radius: 1px;
-}
-
-.timeline-tooltip {
-    position: fixed;
-    background: rgba(0,0,0,0.95);
-    color: white;
-    padding: 0;
-    border-radius: 8px;
-    font-size: 13px;
-    pointer-events: none;
-    z-index: 1000;
-    white-space: normal;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
-    border: 1px solid rgba(255,255,255,0.1);
-    max-width: 280px;
-    min-width: 180px;
-}
-
-.timeline-tooltip .tooltip-header {
-    padding: 10px 12px 6px;
-    border-bottom: 1px solid rgba(255,255,255,0.2);
-    margin-bottom: 8px;
-}
-
-.timeline-tooltip .tooltip-header strong {
-    display: block;
-    font-size: 16px;
-    margin-bottom: 2px;
-}
-
-.timeline-tooltip .tooltip-header small {
-    color: #ccc;
-    font-size: 11px;
-}
-
-.timeline-tooltip .tooltip-body {
-    padding: 0 12px 10px;
-}
-
-.timeline-tooltip .tooltip-phase {
-    font-weight: bold;
-    margin-bottom: 6px;
-    font-size: 14px;
-}
-
-.timeline-tooltip .tooltip-safety {
-    margin-bottom: 4px;
-    font-size: 12px;
-}
-
-.timeline-tooltip .tooltip-details {
-    margin-bottom: 6px;
-    color: #ddd;
-    font-size: 11px;
-    font-style: italic;
-}
-
-.timeline-tooltip .tooltip-type {
-    text-align: center;
-    padding-top: 4px;
-    border-top: 1px solid rgba(255,255,255,0.1);
-    margin-top: 6px;
-}
-
-.timeline-tooltip .tooltip-intensity {
-    margin-bottom: 4px;
-    font-weight: bold;
-    font-size: 12px;
-    color: #fff;
-    background: rgba(255,255,255,0.1);
-    padding: 2px 6px;
-    border-radius: 3px;
-    display: inline-block;
-}
-
-.timeline-tooltip::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    margin-left: -6px;
-    border: 6px solid transparent;
-    border-top-color: rgba(0,0,0,0.95);
-}
-
-/* Dark theme tooltip adjustments */
-html[data-bs-theme="dark"] .timeline-tooltip {
-    background: rgba(33,37,41,0.95);
-    border-color: rgba(255,255,255,0.2);
-}
-
-html[data-bs-theme="dark"] .timeline-tooltip::after {
-    border-top-color: rgba(33,37,41,0.95);
-}
-
-/* Color Guide Styles */
-.color-guide {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    align-items: center;
-    justify-content: center;
-}
-
-.color-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    white-space: nowrap;
-}
-
-.color-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    display: inline-block;
-}
-
-.color-safe-period { background-color: #dc3545; }
-.color-building { background-color: #ffc107; }
-.color-fertility { background-color: #fd7e14; }
-.color-safe-post { background-color: #28a745; }
-
-/* Dark theme color guide adjustments */
-html[data-bs-theme="dark"] .color-guide {
-    color: var(--text-color);
-}
-
-html[data-bs-theme="dark"] .card-footer {
-    background-color: var(--card-bg) !important;
-    border-color: var(--border-color) !important;
-}
-
-.timeline-container {
-    width: 100%;
-}
-
-.current-phase-badge {
-    display: inline-block;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-weight: 500;
-    font-size: 13px;
-    margin-top: 8px;
-}
-
-/* Mobile tooltip adjustments */
-@media (max-width: 768px) {
     .timeline-tooltip {
-        max-width: 250px;
+        position: fixed;
+        background: rgba(33, 37, 41, 0.98);
+        color: white;
+        padding: 10px;
+        border-radius: 8px;
+        font-size: 12px;
+        z-index: 2000;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        max-width: 260px;
         min-width: 180px;
+    }
+
+    .tooltip-header {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        padding-bottom: 5px;
+        margin-bottom: 5px;
+    }
+
+    .tooltip-phase {
+        font-weight: bold;
+        font-size: 13px;
+        color: #fd7e14;
+    }
+
+    .tooltip-intensity {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 2px 6px;
+        border-radius: 3px;
+        display: inline-block;
+        font-size: 11px;
+        margin-top: 4px;
+    }
+
+    .tooltip-safety {
+        font-weight: bold;
+        margin-top: 4px;
+    }
+
+    .tooltip-details {
+        color: #ccc;
+        font-style: italic;
+        font-size: 11px;
+        margin-top: 2px;
+    }
+
+    .tooltip-type {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 4px;
+        margin-top: 6px;
+        text-align: center;
+    }
+
+    .color-guide {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .color-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
         font-size: 12px;
     }
-    
-    .timeline-tooltip .tooltip-header strong {
-        font-size: 14px;
-    }
-    
-    .timeline-tooltip .tooltip-phase {
-        font-size: 13px;
-    }
-}
 
-.timeline-container {
-    width: 100%;
-}
+    .color-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+    }
 
-.current-phase-badge {
-    display: inline-block;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-weight: 500;
-    font-size: 13px;
-    margin-top: 8px;
-}
+    .color-safe-period {
+        background-color: #b02a37;
+    }
+
+    .color-building {
+        background-color: #d39e00;
+    }
+
+    .color-fertility {
+        background-color: #d35400;
+    }
+
+    .color-safe-post {
+        background-color: #1e7e34;
+    }
+
+    .metric-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+        box-shadow: var(--shadow);
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <div class="card shadow-lg mb-4">
-            <div class="card-header bg-primary text-white">
-                <h4 class="mb-0"><i class="fas fa-crystal-ball"></i> Cycle Predictor & Fertility Tracker
-                <button class="info-btn" data-info-title="Predict Your Cycle" data-info-content="Based on your tracked cycles, we predict when your next period will come and when you're most fertile. The more you track, the more accurate the predictions." aria-label="Help">i</button>
-                </h4>
+        {% call components.card(title="Forecast & Fertility Intelligence", icon="fas fa-wand-magic-sparkles",
+        class="shadow-lg mb-4", header_class="bg-primary text-white") %}
+        {% if not cycle_data or not cycle_data.previous_cycles or cycle_data.previous_cycles|length == 0 %}
+        <div class="alert alert-info text-center py-5" role="alert">
+            <i class="fas fa-inbox fa-3x mb-3 text-muted"></i>
+            <h5><strong>Not Enough Tracking Data</strong></h5>
+            <p class="mb-3">We need at least two period records to predict future period starts and ovulation windows
+                accurately.</p>
+        </div>
+        {% else %}
+
+        <!-- Expanded Fertility Metrics Dashboard -->
+        <div class="row g-3 mb-4">
+            <!-- Regularity Score Card -->
+            <div class="col-md-4 col-sm-6">
+                {{ components.stat_card(
+                title="Period Regularity",
+                value=cycle_data.cycle_regularity_score,
+                subtext="Window Consistency: " ~ cycle_data.fertility_window_consistency ~ "%",
+                icon="fas fa-calendar-check text-success"
+                ) }}
             </div>
-            
-            <div class="card-body">
-                <!-- Empty State Message -->
-                {% if not cycle_data or not cycle_data.previous_cycles or cycle_data.previous_cycles|length == 0 %}
-                    <div class="alert alert-info text-center" role="alert">
-                        <i class="fas fa-inbox fa-2x mb-3" style="display: block;"></i>
-                        <h5><strong>Not Enough Data Yet</strong></h5>
-                        <p class="mb-3">The cycle predictor needs at least 2 cycle entries to predict your future cycles accurately.</p>
-                        <p class="mb-3 text-muted"><small>You've {% if cycle_data.previous_cycles %}tracked {{ cycle_data.previous_cycles|length }} cycle(s){% else %}not yet started tracking{% endif %}</small></p>
-                        {% if not is_view_only %}
-                        <a href="/input" class="btn btn-primary">
-                            <i class="fas fa-plus"></i> Add Your First Entry
-                        </a>
-                        {% else %}
-                        <p class="text-muted"><small>In view-only mode. Log in to add entries.</small></p>
-                        {% endif %}
-                    </div>
-                {% else %}
-                <!-- Previous Cycle Info Box -->
-                {% if cycle_data.previous_cycles and cycle_data.previous_cycles|length > 0 %}
-                <div class="card mb-4 border-start border-5 border-info">
-                    <div class="card-body">
-                        <h6 class="card-title mb-3"><i class="fas fa-history"></i> Previous Cycle Summary</h6>
-                        {% set prev_cycle = cycle_data.previous_cycles|list|first %}
-                        <div class="row">
-                            <div class="col-md-6">
-                                <p class="mb-2"><strong>Start Date:</strong> {{ prev_cycle.start_date_str }}</p>
-                                <p class="mb-2"><strong>Duration:</strong> {{ prev_cycle.length }} days</p>
-                            </div>
-                            <div class="col-md-6">
-                                {% if cycle_data.fertile_window %}
-                                <div>
-                                    <p class="mb-1"><small><strong>Fertile Window:</strong> {{ cycle_data.fertile_window.start_str }} to {{ cycle_data.fertile_window.end_str }}</small></p>
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-
-                <!-- Cycle Charts -->
-                <div class="mb-4">
-                    <!-- Previous Cycle Timeline -->
-                    {% if cycle_data.previous_cycles and cycle_data.previous_cycles|length > 0 %}
-                    <div class="col-12 mb-4">
-                        <div class="card shadow">
-                            <div class="card-body p-0">
-                                <div id="prevCycleTimeline" class="timeline-container"></div>
-                            </div>
-                            <div class="card-footer bg-light">
-                                <div class="color-guide">
-                                    <strong class="me-2">Color Guide:</strong>
-                                    <span class="color-indicator">
-                                        <span class="color-dot color-safe-period"></span>
-                                        Safe Sex (Period)
-                                    </span>
-                                    <span class="color-indicator">
-                                        <span class="color-dot color-building"></span>
-                                        Building Phase
-                                    </span>
-                                    <span class="color-indicator">
-                                        <span class="color-dot color-fertility"></span>
-                                        Fertility Peak
-                                    </span>
-                                    <span class="color-indicator">
-                                        <span class="color-dot color-safe-post"></span>
-                                        Safe Sex (Post-Ovulation)
-                                    </span>
-                                </div>
-                                <div class="text-center mt-1">
-                                    <small class="text-muted">
-                                        <em>Color intensity shows probability/strength within each phase</em>
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Current/Upcoming Cycle Info Box -->
-                    {% if cycle_data.current_cycle %}
-                    <div class="card mb-4 border-start border-5 border-warning">
-                        <div class="card-body">
-                            <h6 class="card-title mb-3"><i class="fas fa-sync-alt"></i> Current & Upcoming Cycle</h6>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <p class="mb-2"><strong>Current Cycle Start:</strong> {{ cycle_data.current_cycle.start_date_str }}</p>
-                                    {% if cycle_data.current_cycle.is_current %}
-                                    <p class="mb-2"><strong>Day in Cycle:</strong> {{ cycle_data.current_cycle.days_in_cycle }}
-                                        <span class="text-muted" style="font-size: 0.9em;" id="currentCycleDate"></span>
-                                    </p>
-                                    <p class="mb-2"><strong>Progress:</strong> {{ "%.0f"|format(cycle_data.current_cycle.cycle_percentage) }}%</p>
-                                    <div id="currentPhaseInfo"></div>
-                                    <script>
-                                    document.addEventListener('DOMContentLoaded', function() {
-                                        // Calculate current cycle date
-                                        const startDate = new Date('{{ cycle_data.current_cycle.start_date }}T00:00:00');
-                                        const daysInCycle = {{ cycle_data.current_cycle.days_in_cycle }};
-                                        const currentDate = new Date(startDate);
-                                        currentDate.setDate(currentDate.getDate() + daysInCycle);
-                                        
-                                        const options = { year: 'numeric', month: 'long', day: 'numeric' };
-                                        const dateStr = currentDate.toLocaleDateString('en-US', options);
-                                        document.getElementById('currentCycleDate').textContent = '(' + dateStr + ')';
-                                        
-                                        // Determine current phase
-                                        let phaseInfo = '';
-                                        let badgeClass = '';
-                                        let phaseEmoji = '';
-                                        
-                                        if (daysInCycle < 5) {
-                                            phaseInfo = 'Menstruation Phase';
-                                            badgeClass = 'bg-danger';
-                                            phaseEmoji = '🔴';
-                                        } else if (daysInCycle < 14) {
-                                            phaseInfo = 'Follicular Phase (Building)';
-                                            badgeClass = 'bg-warning text-dark';
-                                            phaseEmoji = '🟡';
-                                        } else if (daysInCycle < 16) {
-                                            phaseInfo = 'Ovulation Phase (Peak Fertility)';
-                                            badgeClass = 'bg-danger';
-                                            phaseEmoji = '🔶';
-                                        } else {
-                                            phaseInfo = 'Luteal Phase (Post-Ovulation)';
-                                            badgeClass = 'bg-success';
-                                            phaseEmoji = '🟢';
-                                        }
-                                        
-                                        const badge = document.createElement('span');
-                                        badge.className = `current-phase-badge badge ${badgeClass}`;
-                                        badge.textContent = phaseEmoji + ' ' + phaseInfo;
-                                        
-                                        document.getElementById('currentPhaseInfo').appendChild(badge);
-                                    });
-                                    </script>
-                                    {% else %}
-                                    <p class="mb-0"><strong>Duration:</strong> {{ cycle_data.current_cycle.days_in_cycle }} days</p>
-                                    {% endif %}
-                                </div>
-                                <div class="col-md-6">
-                                    <p class="mb-2"><strong>Next Cycle Predicted:</strong> 
-                                    {% if cycle_data.next_cycle %}
-                                        {{ cycle_data.next_cycle.start_date_str }}
-                                    {% else %}
-                                        <span class="text-muted">Calculating...</span>
-                                    {% endif %}
-                                    </p>
-                                    {% if cycle_data.next_fertile_window %}
-                                    <div class="mt-2">
-                                        <p class="mb-0"><small><strong>Predicted Fertile Window:</strong> {{ cycle_data.next_fertile_window.start_str }} to {{ cycle_data.next_fertile_window.end_str }}</small></p>
-                                    </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-                    
-                    <!-- Current/Upcoming Cycle Timeline -->
-                    <div class="col-12">
-                        <div class="card shadow">
-                            <div class="card-body p-0">
-                                <div id="currentCycleTimeline" class="timeline-container"></div>
-                            </div>
-                            <div class="card-footer bg-light">
-                                <div class="color-guide">
-                                    <strong class="me-2">Color Guide:</strong>
-                                    <span class="color-indicator">
-                                        <span class="color-dot color-safe-period"></span>
-                                        Safe Sex (Period)
-                                    </span>
-                                    <span class="color-indicator">
-                                        <span class="color-dot color-building"></span>
-                                        Building Phase
-                                    </span>
-                                    <span class="color-indicator">
-                                        <span class="color-dot color-fertility"></span>
-                                        Fertility Peak
-                                    </span>
-                                    <span class="color-indicator">
-                                        <span class="color-dot color-safe-post"></span>
-                                        Safe Sex (Post-Ovulation)
-                                    </span>
-                                </div>
-                                <div class="text-center mt-1">
-                                    <small class="text-muted">
-                                        <em>Color intensity shows probability/strength within each phase</em>
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-
+            <!-- Predictions Confidence Card -->
+            <div class="col-md-4 col-sm-6">
+                {{ components.stat_card(
+                title="Prediction Confidence",
+                value=cycle_data.fertility_confidence_score,
+                unit="%",
+                subtext="Based on tracked cycles",
+                icon="fas fa-percentage text-info"
+                ) }}
+            </div>
+            <!-- Current Fertility Probability -->
+            <div class="col-md-4 col-sm-12">
+                {{ components.stat_card(
+                title="Fertility Chance Today",
+                value=cycle_data.fertility_probability,
+                unit="%",
+                subtext="Phase: " ~ cycle_data.current_cycle_phase,
+                icon="fas fa-heartbeat text-danger"
+                ) }}
             </div>
         </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-4 col-sm-6">
+                {{ components.stat_card(
+                title="Latest BMI",
+                value=cycle_data.latest_bmi if cycle_data.latest_bmi else 'N/A',
+                subtext=cycle_data.latest_bmi_category if cycle_data.latest_bmi_category else 'No body metric logged',
+                icon="fas fa-heart-pulse text-danger"
+                ) }}
+            </div>
+            <div class="col-md-4 col-sm-6">
+                {{ components.stat_card(
+                title="Recent Sex Entries",
+                value=cycle_data.recent_sex_count,
+                subtext="Used as forecast context",
+                icon="fas fa-heart text-danger"
+                ) }}
+            </div>
+            <div class="col-md-4 col-sm-12">
+                {{ components.stat_card(
+                title="Predicted vs Actual",
+                value="Tracking",
+                subtext=cycle_data.predicted_vs_actual_note,
+                icon="fas fa-scale-balanced text-warning"
+                ) }}
+            </div>
+        </div>
+        <!-- Stats summary section -->
+        <div class="card mb-4 soft-panel border-0">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4 col-6">
+                        <small class="text-muted d-block">Average Period Interval</small>
+                        <strong>{{ cycle_data.average_cycle_length }} Days</strong>
+                    </div>
+                    <div class="col-md-4 col-6">
+                        <small class="text-muted d-block">Average Period Duration</small>
+                        <strong>{{ cycle_data.average_period_length }} Days</strong>
+                    </div>
+                    <div class="col-md-4 col-12">
+                        <small class="text-muted d-block">Predicted Ovulation</small>
+                        <strong>{{ cycle_data.predicted_ovulation_date_str }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Previous Cycle Timeline -->
+        {% if cycle_data.previous_cycles %}
+        <div class="col-12 mb-4">
+            <div class="card shadow">
+                <div class="card-body p-0">
+                    <div id="prevCycleTimeline" class="timeline-container"></div>
+                </div>
+                <div class="card-footer bg-white border-top-0">
+                    <div class="color-guide">
+                        <span class="color-indicator"><span class="color-dot color-safe-period"></span> Safe Sex
+                            (Period)</span>
+                        <span class="color-indicator"><span class="color-dot color-building"></span> Building
+                            Phase</span>
+                        <span class="color-indicator"><span class="color-dot color-fertility"></span> Fertility
+                            Peak</span>
+                        <span class="color-indicator"><span class="color-dot color-safe-post"></span> Safe Sex
+                            (Post-Ov)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Current Timeline -->
+        <div class="col-12 mb-4">
+            <div class="card shadow">
+                <div class="card-body p-0">
+                    <div id="currentCycleTimeline" class="timeline-container"></div>
+                </div>
+                <div class="card-footer bg-white border-top-0">
+                    <div class="color-guide">
+                        <span class="color-indicator"><span class="color-dot color-safe-period"></span> Safe Sex
+                            (Period)</span>
+                        <span class="color-indicator"><span class="color-dot color-building"></span> Building
+                            Phase</span>
+                        <span class="color-indicator"><span class="color-dot color-fertility"></span> Fertility
+                            Peak</span>
+                        <span class="color-indicator"><span class="color-dot color-safe-post"></span> Safe Sex
+                            (Post-Ov)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fertility Analytics Graphs -->
+        <div class="row g-4 mt-4">
+            <div class="col-lg-6 col-md-12">
+                {% call components.card(title="Period Interval & Ovulation Trend", icon="fas fa-chart-line
+                text-primary", class="shadow h-100", header_class="bg-white text-dark border-0 pb-0") %}
+                <div class="chart-container" style="height: 250px; position: relative;">
+                    <canvas id="cycleTrendsChart"></canvas>
+                </div>
+                {% endcall %}
+            </div>
+            <div class="col-lg-6 col-md-12">
+                {% call components.card(title="Fertility Probability Curve (Current Period)", icon="fas fa-heartbeat
+                text-danger", class="shadow h-100", header_class="bg-white text-dark border-0 pb-0") %}
+                <div class="chart-container" style="height: 250px; position: relative;">
+                    <canvas id="fertilityProbabilityChart"></canvas>
+                </div>
+                {% endcall %}
+            </div>
+        </div>
+
+        {% endif %}
+        {% endcall %}
     </div>
 </div>
 {% endblock %}
+
+

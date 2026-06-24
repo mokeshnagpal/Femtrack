@@ -14,3 +14,16 @@ def generate_otp(email):
     }
 
     return otp
+
+def validate_otp(email, otp):
+    if email not in otp_store:
+        return False
+    entry = otp_store[email]
+    if datetime.now() > entry["expiry"]:
+        del otp_store[email]
+        return False
+    if entry["otp"] != otp:
+        return False
+    # Valid OTP
+    del otp_store[email]
+    return True

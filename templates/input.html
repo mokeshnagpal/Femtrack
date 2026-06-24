@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "macros.html" as components %}
 
 {% block title %}{% if entry_to_edit %}Edit Entry - Femtrack{% else %}Add Entry - Femtrack{% endif %}{% endblock %}
 
@@ -57,18 +58,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('weird').checked = true;
                 if (symptom.intensity) {
                     document.getElementById('weirdIntensity').value = symptom.intensity;
+                    window.syncCustomDropdown?.('weirdIntensity');
                 }
                 document.getElementById('weirdSection').classList.remove('d-none');
             } else if (symptom.name === 'craving') {
                 document.getElementById('craving').checked = true;
                 if (symptom.intensity) {
                     document.getElementById('cravingIntensity').value = symptom.intensity;
+                    window.syncCustomDropdown?.('cravingIntensity');
                 }
                 document.getElementById('cravingSection').classList.remove('d-none');
             } else if (symptom.name === 'irritation') {
                 document.getElementById('irritation').checked = true;
                 if (symptom.intensity) {
                     document.getElementById('irritationIntensity').value = symptom.intensity;
+                    window.syncCustomDropdown?.('irritationIntensity');
                 }
                 document.getElementById('irritationSection').classList.remove('d-none');
             } else if (symptom.name === 'diarrhea') {
@@ -341,25 +345,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     {% endif %}
                     
                     <!-- Date Selection -->
-                    <div class="mb-4">
-                        <label for="date" class="form-label fw-bold d-flex align-items-center">
-                            <i class="fas fa-calendar-alt text-primary me-2"></i> Date
-                        </label>
-                        <input type="date" class="form-control form-control-lg" id="date" name="date" required>
-                        <small class="text-muted d-block mt-2">Select the date for this entry</small>
-                    </div>
+                    {{ components.input_box(name="date", label="Date", type="date", required=True, id="date", icon="fas fa-calendar-alt text-primary", class="mb-4") }}
+                    <small class="text-muted d-block mt-n3 mb-4 ps-1">Select the date for this entry</small>
                     
                     <!-- Period Tracking Section (Prominent) -->
                     <div id="periodTrackingSection" class="mb-4 p-3 rounded border-2 border-danger">
                         <h5 class="card-title fw-bold mb-3">
                             <i class="fas fa-droplet text-danger"></i> Period Tracking
                         </h5>
-                        <div class="form-check form-check-lg mb-3">
-                            <input class="form-check-input" type="checkbox" id="period_track" name="symptoms" value="period">
-                            <label class="form-check-label" for="period_track">
-                                <strong>I have my period today</strong>
-                            </label>
-                        </div>
+                        {{ components.checkbox(name="symptoms", label="I have my period today", id="period_track", value="period", class="form-check-lg mb-3") }}
                         <div id="periodDetailsSection" class="d-none">
                             <div class="mb-3">
                                 <label for="flowAmount" class="form-label fw-bold">Flow Amount</label>
@@ -373,15 +367,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             
                             <div class="mb-3">
                                 <h6 class="small fw-bold text-muted mb-2">MARK START OF PERIOD</h6>
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="periodStart">
-                                    <label class="form-check-label" for="periodStart">
-                                        <i class="fas fa-flag text-success"></i> Mark as <strong>START</strong> of Period
-                                    </label>
-                                </div>
+                                {{ components.checkbox(name="period_start", label='Mark as START of Period'|safe, id="periodStart", class="mb-2") }}
                                 <div id="startTimeSection" class="d-none ms-4 mb-3">
-                                    <label for="startTime" class="form-label small">Start Time (optional)</label>
-                                    <input type="time" class="form-control form-control-sm" id="startTime" name="start_time">
+                                    {{ components.input_box(name="start_time", label="Start Time (optional)", type="time", id="startTime", class="mb-3") }}
                                 </div>
                             </div>
                         </div>
@@ -392,16 +380,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         <h5 class="card-title fw-bold mb-3">
                             <i class="fas fa-heart text-success"></i> All Clear! 🎉
                         </h5>
-                        <div class="form-check form-check-lg">
-                            <input class="form-check-input" type="checkbox" id="periodEnd" name="period_ended">
-                            <label class="form-check-label" for="periodEnd">
-                                <strong>My period has ended</strong>
-                            </label>
-                        </div>
+                        {{ components.checkbox(name="period_ended", label="My period has ended", id="periodEnd", class="form-check-lg mb-2") }}
                         <small class="text-muted d-block mt-2">Check this to mark that your period has officially ended with no more flow</small>
                         <div id="endTimeSection" class="d-none ms-4 mt-3">
-                            <label for="endTime" class="form-label small">End Time (optional)</label>
-                            <input type="time" class="form-control form-control-sm" id="endTime" name="end_time">
+                            {{ components.input_box(name="end_time", label="End Time (optional)", type="time", id="endTime", class="mb-3") }}
                         </div>
                     </div>
                     
@@ -418,36 +400,16 @@ document.addEventListener('DOMContentLoaded', function() {
                             <input class="form-check-input d-none" type="checkbox" id="period" name="symptoms" value="period">
                             
                             <div class="col-6 col-sm-6 col-md-4 col-lg-2">
-                                <div class="form-check form-check-lg">
-                                    <input class="form-check-input" type="checkbox" id="weird" name="symptoms" value="weird">
-                                    <label class="form-check-label" for="weird">
-                                        <strong><i class="fas fa-face-dizzy text-warning"></i> Feeling Weird</strong>
-                                    </label>
-                                </div>
+                                {{ components.checkbox(name="symptoms", label='<i class="fas fa-face-dizzy text-warning"></i> Feeling Weird'|safe, id="weird", value="weird", class="form-check-lg") }}
                             </div>
                             <div class="col-6 col-sm-6 col-md-4 col-lg-2">
-                                <div class="form-check form-check-lg">
-                                    <input class="form-check-input" type="checkbox" id="craving" name="symptoms" value="craving">
-                                    <label class="form-check-label" for="craving">
-                                        <strong><i class="fas fa-candy text-info"></i> Craving</strong>
-                                    </label>
-                                </div>
+                                {{ components.checkbox(name="symptoms", label='<i class="fas fa-candy text-info"></i> Craving'|safe, id="craving", value="craving", class="form-check-lg") }}
                             </div>
                             <div class="col-6 col-sm-6 col-md-4 col-lg-2">
-                                <div class="form-check form-check-lg">
-                                    <input class="form-check-input" type="checkbox" id="irritation" name="symptoms" value="irritation">
-                                    <label class="form-check-label" for="irritation">
-                                        <strong><i class="fas fa-face-angry text-success"></i> Irritation</strong>
-                                    </label>
-                                </div>
+                                {{ components.checkbox(name="symptoms", label='<i class="fas fa-face-angry text-success"></i> Irritation'|safe, id="irritation", value="irritation", class="form-check-lg") }}
                             </div>
                             <div class="col-6 col-sm-6 col-md-4 col-lg-2">
-                                <div class="form-check form-check-lg">
-                                    <input class="form-check-input" type="checkbox" id="diarrhea" name="symptoms" value="diarrhea">
-                                    <label class="form-check-label" for="diarrhea">
-                                        <strong><i class="fas fa-toilet text-secondary"></i> Diarrhea</strong>
-                                    </label>
-                                </div>
+                                {{ components.checkbox(name="symptoms", label='<i class="fas fa-toilet text-secondary"></i> Diarrhea'|safe, id="diarrhea", value="diarrhea", class="form-check-lg") }}
                             </div>
                         </div>
                     </div>
@@ -455,43 +417,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     <!-- Feeling Weird Details -->
                     <div id="weirdSection" class="d-none form-section border-warning">
                         <h6 class="fw-bold mb-3"><i class="fas fa-face-dizzy text-warning"></i> Feeling Weird Details</h6>
-                        <div class="mb-3">
-                            <label for="weirdIntensity" class="form-label fw-bold">Intensity</label>
-                            <select class="form-select" id="weirdIntensity" name="weird_intensity">
-                                <option value="">Select intensity level</option>
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
-                            </select>
-                        </div>
+                        {{ components.dropdown(name="weird_intensity", label="Intensity", options=[("", "Select intensity level"), ("low", "Low"), ("medium", "Medium"), ("high", "High")], id="weirdIntensity") }}
                     </div>
                     
                     <!-- Craving Details -->
                     <div id="cravingSection" class="d-none form-section border-info">
                         <h6 class="fw-bold mb-3"><i class="fas fa-candy text-info"></i> Craving Details</h6>
-                        <div class="mb-3">
-                            <label for="cravingIntensity" class="form-label fw-bold">Intensity</label>
-                            <select class="form-select" id="cravingIntensity" name="craving_intensity">
-                                <option value="">Select intensity level</option>
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
-                            </select>
-                        </div>
+                        {{ components.dropdown(name="craving_intensity", label="Intensity", options=[("", "Select intensity level"), ("low", "Low"), ("medium", "Medium"), ("high", "High")], id="cravingIntensity") }}
                     </div>
                     
                     <!-- Irritation Details -->
                     <div id="irritationSection" class="d-none form-section border-success">
                         <h6 class="fw-bold mb-3"><i class="fas fa-face-angry text-success"></i> Irritation Details</h6>
-                        <div class="mb-3">
-                            <label for="irritationIntensity" class="form-label fw-bold">Intensity</label>
-                            <select class="form-select" id="irritationIntensity" name="irritation_intensity">
-                                <option value="">Select intensity level</option>
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
-                            </select>
-                        </div>
+                        {{ components.dropdown(name="irritation_intensity", label="Intensity", options=[("", "Select intensity level"), ("low", "Low"), ("medium", "Medium"), ("high", "High")], id="irritationIntensity") }}
                     </div>
                     
                     <!-- Diarrhea Details -->
@@ -501,25 +439,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     
                     <!-- Additional Notes -->
-                    <div class="mb-4">
-                        <label for="notes" class="form-label fw-bold d-flex align-items-center">
-                            <i class="fas fa-sticky-note text-info me-2"></i> Additional Notes (Optional)
-                        </label>
-                        <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Add any additional notes about this day..."></textarea>
-                    </div>
+                    {{ components.textarea(name="notes", label="Additional Notes (Optional)", placeholder="Add any additional notes about this day...", rows=3, id="notes", class="mb-4") }}
                     
                     <!-- Submit Buttons -->
                     <div class="d-grid gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary btn-lg fw-bold">
-                            {% if entry_to_edit %}
-                            <i class="fas fa-sync"></i> Update Entry
-                            {% else %}
-                            <i class="fas fa-save"></i> Save Entry
-                            {% endif %}
-                        </button>
-                        <a href="/entries" class="btn btn-outline-secondary">
-                            <i class="fas fa-arrow-left"></i> Back to Entries
-                        </a>
+                        {{ components.btn(text="Update Entry" if entry_to_edit else "Save Entry", type="submit", variant="primary", class="btn-lg fw-bold", icon="fas fa-sync" if entry_to_edit else "fas fa-save") }}
+                        {{ components.btn(text="Back to Menses Logs", variant="secondary", outline=True, href="/entries", icon="fas fa-arrow-left") }}
                     </div>
                 </form>
             </div>
@@ -619,8 +544,8 @@ html[data-bs-theme="dark"] .form-check-input {
 }
 
 html[data-bs-theme="dark"] .form-check-input:checked {
-    background-color: #667eea;
-    border-color: #667eea;
+    background-color: #9f2f55;
+    border-color: #9f2f55;
 }
 
 html[data-bs-theme="dark"] .form-range {
@@ -628,12 +553,12 @@ html[data-bs-theme="dark"] .form-range {
 }
 
 html[data-bs-theme="dark"] .form-range::-webkit-slider-thumb {
-    background-color: #667eea;
+    background-color: #9f2f55;
     border-color: #2d2d2d;
 }
 
 html[data-bs-theme="dark"] .form-range::-moz-range-thumb {
-    background-color: #667eea;
+    background-color: #9f2f55;
     border-color: #2d2d2d;
 }
 
@@ -754,7 +679,7 @@ html[data-bs-theme="dark"] #validationErrorBox .alert-heading {
 #helpBtn {
     background-color: rgba(255, 255, 255, 0.9) !important;
     border: none !important;
-    color: #667eea !important;
+    color: #9f2f55 !important;
     transition: all 0.3s ease;
 }
 
@@ -765,7 +690,7 @@ html[data-bs-theme="dark"] #validationErrorBox .alert-heading {
 }
 
 #helpBtn:focus {
-    box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25) !important;
+    box-shadow: 0 0 0 0.25rem rgba(159, 47, 85, 0.25) !important;
 }
 
 /* Dark mode specific styling for modal */
@@ -798,9 +723,9 @@ html[data-bs-theme="dark"] hr {
 
 /* Help modal alert styling */
 .modal-body .alert-info {
-    background-color: rgba(102, 126, 234, 0.1);
-    border-color: #667eea;
-    border-left: 4px solid #667eea;
+    background-color: rgba(159, 47, 85, 0.1);
+    border-color: #9f2f55;
+    border-left: 4px solid #9f2f55;
     color: var(--text-color);
 }
 
@@ -809,7 +734,7 @@ html[data-bs-theme="dark"] hr {
 }
 
 html[data-bs-theme="dark"] .modal-body .alert-info {
-    background-color: rgba(102, 126, 234, 0.15);
+    background-color: rgba(159, 47, 85, 0.15);
     border-color: #7a8de8;
     color: #b0b0b0;
 }
@@ -832,12 +757,12 @@ html[data-bs-theme="dark"] .modal-body .alert-info ul li {
 }
 
 .modal-body::-webkit-scrollbar-thumb {
-    background-color: #667eea;
+    background-color: #9f2f55;
     border-radius: 4px;
 }
 
 .modal-body::-webkit-scrollbar-thumb:hover {
-    background-color: #764ba2;
+    background-color: #6f3a75;
 }
 
 html[data-bs-theme="dark"] .modal-body::-webkit-scrollbar-track {
@@ -845,3 +770,5 @@ html[data-bs-theme="dark"] .modal-body::-webkit-scrollbar-track {
 }
 </style>
 {% endblock %}
+
+

@@ -1,219 +1,601 @@
 {% extends "base.html" %}
+{% import "macros.html" as components %}
 
-{% block title %}Analytics - Femtrack{% endblock %}
+{% block title %}Unified Health Analytics - Femtrack{% endblock %}
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    fetch('/analytics-data')
-        .then(response => response.json())
+document.addEventListener('DOMContentLoaded', function () {
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim() || '#2c3e50';
+    const borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim() || '#e0e0e0';
+    const analyticsQuery = "?group_by={{ analytics_filters.group_by }}&limit={{ analytics_filters.limit }}";
+
+    function themedScales(extraYOptions = {}, axisTitles = {}) {
+        return {
+            x: {
+                ticks: { color: textColor },
+                grid: { color: borderColor },
+                title: { display: Boolean(axisTitles.x), text: axisTitles.x || '', color: textColor }
+            },
+            y: {
+                ticks: { color: textColor },
+                grid: { color: borderColor },
+                title: { display: Boolean(axisTitles.y), text: axisTitles.y || '', color: textColor },
+                ...extraYOptions
+            }
+        };
+    }
+
+    function themedLegend(position = 'bottom') {
+        return {
+            position,
+            labels: {
+                color: textColor,
+                boxWidth: 14,
+                padding: 14
+            }
+        };
+    }
+
+    function showChartMessage(containerId, message) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = `<div class="alert alert-light text-center py-4 mb-0">${message}</div>`;
+    }
+
+    async function fetchJson(url) {
+        const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || `Request failed with status ${response.status}`);
+        }
+        return data;
+    }
+
+    if (!window.Chart) {
+        showChartMessage('menstrualCharts', 'Charts could not load. Please check your connection and refresh.');
+        showChartMessage('bodyMetricsCharts', 'Charts could not load. Please check your connection and refresh.');
+        showChartMessage('sexCharts', 'Charts could not load. Please check your connection and refresh.');
+        return;
+    }
+
+    Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+    Chart.defaults.color = textColor;
+
+    fetchJson('/analytics-data' + analyticsQuery)
         .then(data => {
-            if (data.error) {
-                alert('Please login first');
+            if (!Array.isArray(data) || data.length === 0) {
+                showChartMessage('menstrualCharts', 'No menstrual data recorded yet.');
                 return;
             }
 
-            // Show message if no data
-            if (!data || data.length === 0) {
-                document.getElementById('noDataAlert').classList.remove('d-none');
-                document.getElementById('chartsContainer').classList.add('d-none');
-                return;
-            }
-
-            // Prepare data
-            const dates = data.map(d => d.date);
-            const amounts = data.map(d => d.amount);
-            const intensities = data.map(d => d.intensity);
+            const dates = data.map(d => d.date || '');
+            const amounts = data.map(d => Number(d.amount) || 0);
             const symptoms = data.flatMap(d => d.symptoms || []);
             const periodStarts = data.filter(d => d.is_period_start).map(d => d.date);
+            const amountCanvas = document.getElementById('amountChart');
 
-            // Chart.js global settings
-            Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
-            Chart.defaults.color = getComputedStyle(document.documentElement).getPropertyValue('--text-color');
-
-            // Line Chart for Amount
-            const ctx1 = document.getElementById('amountChart').getContext('2d');
-            new Chart(ctx1, {
-                type: 'line',
-                data: {
-                    labels: dates,
-                    datasets: [{
-                        label: 'Flow Amount',
-                        data: amounts,
-                        borderColor: 'rgb(102, 126, 234)',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        borderWidth: 3,
-                        tension: 0.3,
-                        fill: true,
-                        pointBackgroundColor: dates.map(date => periodStarts.includes(date) ? '#f5576c' : 'rgb(102, 126, 234)'),
-                        pointBorderColor: 'white',
-                        pointBorderWidth: 2,
-                        pointRadius: 6,
-                        pointHoverRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Flow Amount Over Time',
-                            font: { size: 14, weight: 'bold' }
-                        },
-                        legend: {
-                            display: true
-                        }
+            if (amountCanvas) {
+                new Chart(amountCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: dates,
+                        datasets: [{
+                            label: 'Flow Amount',
+                            data: amounts,
+                            borderColor: '#9f2f55',
+                            backgroundColor: 'rgba(159, 47, 85, 0.12)',
+                            borderWidth: 3,
+                            tension: 0.3,
+                            fill: true,
+                            pointBackgroundColor: dates.map(date => periodStarts.includes(date) ? '#c05621' : '#9f2f55'),
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointRadius: 6
+                        }]
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 10,
-                            ticks: {
-                                stepSize: 1
-                            }
-                        }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: { display: true, text: 'Period Flow over Time' },
+                            legend: { display: false }
+                        },
+                        scales: themedScales({ beginAtZero: true, max: 10, ticks: { color: textColor, stepSize: 1 } }, { x: 'Date', y: 'Flow Amount' })
                     }
-                }
-            });
+                });
+            }
 
-            // Pie Chart for Symptoms
             const symptomCounts = {};
             symptoms.forEach(symptom => {
-                // Extract symptom name if it's an object, otherwise use as-is
                 const symptomName = typeof symptom === 'object' ? symptom.name : symptom;
-                // Skip period symptom from distribution chart
-                if (symptomName !== 'period') {
+                if (symptomName && symptomName !== 'period') {
                     symptomCounts[symptomName] = (symptomCounts[symptomName] || 0) + 1;
                 }
             });
 
-            const ctx3 = document.getElementById('symptomsChart').getContext('2d');
-            new Chart(ctx3, {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(symptomCounts),
-                    datasets: [{
-                        data: Object.values(symptomCounts),
-                        backgroundColor: [
-                            'rgba(102, 126, 234, 0.8)',
-                            'rgba(245, 87, 108, 0.8)',
-                            'rgba(56, 239, 125, 0.8)',
-                            'rgba(240, 147, 251, 0.8)'
-                        ],
-                        borderColor: 'white',
-                        borderWidth: 3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Symptoms Distribution',
-                            font: { size: 14, weight: 'bold' }
-                        },
-                        legend: {
-                            position: 'bottom'
+            const symptomsCanvas = document.getElementById('symptomsChart');
+            if (Object.keys(symptomCounts).length > 0 && symptomsCanvas) {
+                new Chart(symptomsCanvas, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(symptomCounts),
+                        datasets: [{
+                            data: Object.values(symptomCounts),
+                            backgroundColor: [
+                                'rgba(159, 47, 85, 0.85)',
+                                'rgba(245, 87, 108, 0.8)',
+                                'rgba(47, 133, 90, 0.85)',
+                                'rgba(192, 86, 33, 0.8)',
+                                'rgba(111, 58, 117, 0.8)'
+                            ],
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: { display: true, text: 'Symptom Frequency' },
+                            legend: themedLegend('bottom')
                         }
                     }
-                }
-            });
+                });
+            } else {
+                showChartMessage('symptomsChartContainer', 'No symptoms tracked.');
+            }
         })
         .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('noDataAlert').classList.remove('d-none');
-            document.getElementById('chartsContainer').classList.add('d-none');
+            console.error('Menstrual analytics failed:', error);
+            showChartMessage('menstrualCharts', 'Unable to load menstrual analytics right now.');
         });
+
+    fetchJson('/api/weight-height/trends' + analyticsQuery)
+        .then(data => {
+            if (!Array.isArray(data) || data.length === 0) {
+                showChartMessage('bodyMetricsCharts', 'No weight or height data recorded yet.');
+                return;
+            }
+
+            const dates = data.map(d => {
+                if (!d.date) return '';
+                const date = new Date(`${d.date}T00:00:00`);
+                return Number.isNaN(date.getTime()) ? d.date : date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+            });
+            const weights = data.map(d => Number(d.weight) || 0);
+            const bmis = data.map(d => Number(d.bmi) || 0);
+            const weightCanvas = document.getElementById('weightTrendChart');
+            const bmiCanvas = document.getElementById('bmiTrendChart');
+
+            if (weightCanvas) {
+                new Chart(weightCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: dates,
+                        datasets: [{
+                            label: 'Weight (kg)',
+                            data: weights,
+                            borderColor: '#9f2f55',
+                            backgroundColor: 'rgba(159, 47, 85, 0.12)',
+                            borderWidth: 3,
+                            tension: 0.2,
+                            fill: true,
+                            pointBackgroundColor: '#6f3a75',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointRadius: 5
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: { display: true, text: 'Weight Trend' },
+                            legend: { display: false }
+                        },
+                        scales: themedScales({}, { x: 'Date', y: 'Weight (kg)' })
+                    }
+                });
+            }
+
+            if (bmiCanvas) {
+                new Chart(bmiCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: dates,
+                        datasets: [{
+                            label: 'BMI',
+                            data: bmis,
+                            borderColor: '#c05621',
+                            backgroundColor: 'rgba(192, 86, 33, 0.12)',
+                            borderWidth: 3,
+                            tension: 0.2,
+                            fill: true,
+                            pointBackgroundColor: '#e59f5d',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointRadius: 5
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: { display: true, text: 'BMI Progression' },
+                            legend: { display: false }
+                        },
+                        scales: themedScales({}, { x: 'Date', y: 'BMI' })
+                    }
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Body metrics analytics failed:', error);
+            showChartMessage('bodyMetricsCharts', 'Unable to load body metrics analytics right now.');
+        });
+
+    const sexTypeChart = {{ sex_summary.type_chart | tojson }};
+    const sexPositionChart = {{ sex_summary.position_chart | tojson }};
+
+    function buildSexBarChart(canvasId, chartData, color, title) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas || !chartData.labels || chartData.labels.length === 0) return false;
+
+        new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    label: 'Entries',
+                    data: chartData.data,
+                    backgroundColor: color.background,
+                    borderColor: color.border,
+                    borderWidth: 2,
+                    borderRadius: 6,
+                    maxBarThickness: 44
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: { display: true, text: title },
+                    legend: { display: false }
+                },
+                scales: themedScales({ beginAtZero: true, ticks: { color: textColor, precision: 0 } }, { x: 'Category', y: 'Entries' })
+            }
+        });
+        return true;
+    }
+
+    const hasTypeChart = buildSexBarChart('sexTypeChart', sexTypeChart, {
+        background: 'rgba(159, 47, 85, 0.72)',
+        border: '#9f2f55'
+    }, 'Sex Type Distribution');
+    const hasPositionChart = buildSexBarChart('sexPositionChart', sexPositionChart, {
+        background: 'rgba(47, 133, 90, 0.68)',
+        border: '#2f855a'
+    }, 'Position Distribution');
+
+    if (!hasTypeChart && !hasPositionChart) {
+        showChartMessage('sexCharts', 'No sex-entry chart data yet.');
+    }
 });
 </script>
 {% endblock %}
 
 {% block content %}
-<div class="row mb-5">
-    <div class="col-12">
-        <h2 class="text-center fw-bold">
-            <i class="fas fa-chart-line"></i> Analytics Dashboard
+<div class="row mb-4">
+    <div class="col-12 text-center">
+        <h2 class="fw-bold mb-1">
+            <i class="fas fa-heartbeat text-danger"></i> Unified Health Analytics
         </h2>
-        <p class="text-center text-muted">Your cycle insights and patterns</p>
+        <p class="text-muted">A comprehensive view of your cycle, fertility, and body metrics</p>
+    </div>
+</div>
+<div class="row mb-4">
+    <div class="col-12">
+        <form class="card shadow-sm border-0" method="GET" action="/analytics">
+            <div class="card-body py-3">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4 col-12">
+                        <label for="group_by" class="form-label fw-bold small text-uppercase text-muted">Group</label>
+                        <select class="form-select" id="group_by" name="group_by">
+                            <option value="daily" {% if analytics_filters.group_by == 'daily' %}selected{% endif %}>Daily</option>
+                            <option value="weekly" {% if analytics_filters.group_by == 'weekly' %}selected{% endif %}>Weekly</option>
+                            <option value="monthly" {% if analytics_filters.group_by == 'monthly' %}selected{% endif %}>Monthly</option>
+                            <option value="yearly" {% if analytics_filters.group_by == 'yearly' %}selected{% endif %}>Yearly</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 col-12">
+                        <label for="limit" class="form-label fw-bold small text-uppercase text-muted">Last N</label>
+                        <select class="form-select" id="limit" name="limit">
+                            <option value="all" {% if analytics_filters.limit == 'all' %}selected{% endif %}>All</option>
+                            <option value="1" {% if analytics_filters.limit == '1' %}selected{% endif %}>1</option>
+                            <option value="5" {% if analytics_filters.limit == '5' %}selected{% endif %}>5</option>
+                            <option value="10" {% if analytics_filters.limit == '10' %}selected{% endif %}>10</option>
+                            <option value="20" {% if analytics_filters.limit == '20' %}selected{% endif %}>20</option>
+                            <option value="50" {% if analytics_filters.limit == '50' %}selected{% endif %}>50</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 col-12 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-fill"><i class="fas fa-filter me-1"></i>Apply</button>
+                        <a href="/analytics" class="btn btn-outline-secondary flex-fill"><i class="fas fa-rotate-left me-1"></i>Reset</a>
+                    </div>
+                </div>
+            </div>
+        </form>
     </div>
 </div>
 
-<!-- Cycle History Section -->
-{% if cycle_data.previous_cycles and cycle_data.previous_cycles|length > 0 %}
+<!-- SECTION 1: Period Analytics -->
 <div class="row mb-4">
     <div class="col-12">
-        <div class="card shadow-lg mb-4">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="fas fa-history"></i> Cycle History</h5>
+        {% call components.card(title="Period Summary", icon="fas fa-star text-primary", class="shadow-sm border-0", header_class="bg-white text-dark py-3") %}
+        <div class="row g-3 text-center">
+            <div class="col-md-3 col-6">
+                {{ components.stat_card(title="Avg Cycle Length", value=fertility.average_cycle_length, unit="days",
+                icon="fas fa-calendar-alt") }}
             </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Cycle Start Date</th>
-                                <th>Cycle Length (Days)</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for cycle in cycle_data.previous_cycles %}
-                            <tr>
-                                <td>{{ cycle.start_date_str }}</td>
-                                <td>{{ cycle.length }}</td>
-                                <td>
-                                    {% if cycle.is_complete %}
-                                        <span class="badge bg-success">Completed</span>
-                                    {% else %}
-                                        <span class="badge bg-warning">Ongoing</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% if cycle_data.average_cycle_length %}
-                <div class="mt-3">
-                    <p class="mb-0"><strong>Average Cycle Length:</strong> {{ cycle_data.average_cycle_length }} days</p>
-                </div>
-                {% endif %}
+            <div class="col-md-3 col-6">
+                {{ components.stat_card(title="Avg Period Length", value=fertility.average_period_length, unit="days",
+                icon="fas fa-tint") }}
+            </div>
+            <div class="col-md-3 col-6">
+                {{ components.stat_card(title="Regularity", value=fertility.cycle_regularity_score,
+                badge_color="success" if fertility.cycle_regularity_score == 'Regular' else 'warning',
+                badge_text=fertility.cycle_regularity_score) }}
+            </div>
+            <div class="col-md-3 col-6">
+                {{ components.stat_card(title="Confidence Score", value=fertility.fertility_confidence_score, unit="%",
+                icon="fas fa-smile") }}
             </div>
         </div>
+        {% endcall %}
+    </div>
+</div>
+
+<!-- Period Charts -->
+<div class="row mb-4" id="menstrualCharts">
+    <div class="col-lg-8 col-md-12">
+        {% call components.card(title="Period Flow over Time", icon="fas fa-droplet text-danger", class="shadow-sm
+        h-100", header_class="bg-white text-dark border-0 pb-0") %}
+        <div class="chart-container"
+            style="height: 250px; margin: 0 auto; box-shadow: none; border-radius: 0; padding: 0;">
+            <canvas id="amountChart"></canvas>
+        </div>
+        {% endcall %}
+    </div>
+    <div class="col-lg-4 col-md-12">
+        {% call components.card(title="Symptom Frequency", icon="fas fa-allergies text-warning", class="shadow-sm
+        h-100", header_class="bg-white text-dark border-0 pb-0") %}
+        <div class="chart-container"
+            style="height: 250px; margin: 0 auto; box-shadow: none; border-radius: 0; padding: 0;"
+            id="symptomsChartContainer">
+            <canvas id="symptomsChart"></canvas>
+        </div>
+        {% endcall %}
+    </div>
+</div>
+
+
+<!-- SECTION 3: Cycle History Table -->
+{% if cycle_history_rows and cycle_history_rows|length > 0 %}
+<div class="row mb-4">
+    <div class="col-12">
+        {% call components.card(title="Cycle History Log", icon="fas fa-history text-secondary", class="shadow-sm", header_class="py-3") %}
+        {% if analytics_filters.group_by == 'daily' %}
+            {% call components.table(headers=["Cycle Start Date", "Cycle Length (Days)", "Status"]) %}
+            {% for cycle in cycle_history_rows %}
+            <tr>
+                <td class="fw-bold ps-4">{{ cycle.start_date_str }}</td>
+                <td>{{ cycle.length }}</td>
+                <td class="pe-4 text-end">
+                    {% if cycle.is_complete %}
+                    <span class="badge bg-success">Completed</span>
+                    {% else %}
+                    <span class="badge bg-warning">Ongoing</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% endcall %}
+        {% else %}
+            {% call components.table(headers=["Period", "Cycles", "Avg Cycle Length", "Status"]) %}
+            {% for cycle in cycle_history_rows %}
+            <tr>
+                <td class="fw-bold ps-4">{{ cycle.bucket_label }}</td>
+                <td>{{ cycle.cycle_count }}</td>
+                <td>{{ cycle.average_length }} days</td>
+                <td class="pe-4 text-end">
+                    {% if cycle.is_complete %}
+                    <span class="badge bg-success">Completed</span>
+                    {% else %}
+                    <span class="badge bg-warning">Ongoing</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% endcall %}
+        {% endif %}
+        {% endcall %}
     </div>
 </div>
 {% endif %}
-
-<div id="noDataAlert" class="alert alert-info d-none text-center" role="alert">
-    <i class="fas fa-inbox fa-2x mb-3" style="display: block;"></i>
-    <h5><strong>No Data Yet</strong></h5>
-    <p class="mb-0">Start tracking your menstrual cycle to see analytics charts and insights.</p>
-</div>
-
-<div id="chartsContainer">
-    <div class="row g-4 mb-4">
-        <div class="col-lg-6 col-md-12">
-            <div class="card shadow h-100">
-                <div class="card-body p-0">
-                    <div class="chart-container">
-                        <canvas id="amountChart"></canvas>
-                    </div>
+<!-- SECTION 4: Sex Analytics -->
+<div class="row mb-4">
+    <div class="col-12">
+        {% call components.card(title="Sex Summary", icon="fas fa-heart text-danger", class="shadow-sm border-0", header_class="py-3") %}
+        <div class="row g-3 text-center">
+            <div class="col-md-4 col-6">
+                {{ components.stat_card(title="Total Sex Entries", value=sex_summary.total, icon="fas fa-list") }}
+            </div>
+            <div class="col-md-4 col-6">
+                {{ components.stat_card(title="Most Common Type", value=sex_summary.most_common_type, subtext=sex_summary.most_common_type_count ~ " entries", icon="fas fa-heart-circle-check") }}
+            </div>
+            <div class="col-md-4 col-12">
+                {{ components.stat_card(title="Most Common Position", value=sex_summary.most_common_position, subtext=sex_summary.most_common_position_count ~ " entries", icon="fas fa-person") }}
+            </div>
+        </div>
+        <div class="row g-3 mt-1" id="sexCharts">
+            <div class="col-lg-6 col-12">
+                <h6 class="fw-bold mb-2">Sex Type Distribution</h6>
+                <div class="chart-container" style="height: 220px; margin: 0 auto; box-shadow: none; border-radius: 0; padding: 0;">
+                    <canvas id="sexTypeChart"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-6 col-12">
+                <h6 class="fw-bold mb-2">Position Distribution</h6>
+                <div class="chart-container" style="height: 220px; margin: 0 auto; box-shadow: none; border-radius: 0; padding: 0;">
+                    <canvas id="sexPositionChart"></canvas>
                 </div>
             </div>
         </div>
-        <div class="col-lg-6 col-md-12">
-            <div class="card shadow h-100">
-                <div class="card-body p-0">
-                    <div class="chart-container">
-                        <canvas id="symptomsChart"></canvas>
+        {% if sex_summary.recent %}
+        <div class="table-responsive mt-3">
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>Date</th><th>Type</th><th>Position</th></tr></thead>
+                <tbody>
+                    {% for entry in sex_summary.recent %}
+                    <tr>
+                        <td>{{ entry.date | format_date }}</td>
+                        <td>{{ entry.sex_type }}</td>
+                        <td>{{ entry.position or 'Not set' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% endcall %}
+    </div>
+</div>
+<!-- SECTION 5: Body Metrics Overview -->
+<div class="row mb-4">
+    <div class="col-12">
+        {% call components.card(title="Body Metrics Summary", icon="fas fa-weight text-success", class="shadow-sm border-0", header_class="bg-white text-dark py-3") %}
+        <div class="row g-3 text-center mb-4">
+            <div class="col-md-3 col-6">
+                {% set wt_class = "text-muted" %}
+                {% set wt_text = "No change" %}
+                {% if weight_height.weight.change > 0 %}
+                {% set wt_class = "text-danger" %}
+                {% set wt_text = "+" ~ weight_height.weight.change ~ " kg" %}
+                {% elif weight_height.weight.change < 0 %} {% set wt_class="text-success" %} {% set wt_text="" ~
+                    weight_height.weight.change ~ " kg" %} {% endif %} {{ components.stat_card(title="Current Weight" ,
+                    value=weight_height.weight.current, unit="kg" , subtext="since prev" , trend_class=wt_class,
+                    trend_text=wt_text, icon="fas fa-weight-hanging" ) }} </div>
+                    <div class="col-md-3 col-6">
+                        {{ components.stat_card(title="Current Height", value=weight_height.height.current, unit="cm",
+                        subtext="Trend: " ~ weight_height.height.trend, icon="fas fa-ruler-vertical") }}
+                    </div>
+                    <div class="col-md-3 col-6">
+                        {% set bmi_badge = "success" %}
+                        {% if weight_height.bmi.category == 'Underweight' or weight_height.bmi.category == 'Overweight'
+                        %}
+                        {% set bmi_badge = "warning text-dark" %}
+                        {% elif weight_height.bmi.category == 'Obese' %}
+                        {% set bmi_badge = "danger" %}
+                        {% endif %}
+                        {{ components.stat_card(title="Current BMI", value=weight_height.bmi.current,
+                        badge_color=bmi_badge, badge_text=weight_height.bmi.category, icon="fas fa-heartbeat") }}
+                    </div>
+                    <div class="col-md-3 col-6">
+                        {{ components.stat_card(title="Stability", value=weight_height.weight.stability, subtext="BMI: "
+                        ~ weight_height.bmi.stability, icon="fas fa-tachometer-alt") }}
+                    </div>
+            </div>
+
+            <!-- Min/Max/Avg statistics tables -->
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0 metric-summary-card">
+                        <div class="card-header bg-transparent text-dark py-2 border-0">
+                            <h6 class="mb-0 fw-bold"><i class="fas fa-weight-hanging text-primary me-2"></i> Weight
+                                Summary Stats</h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-sm metric-summary-table mb-0 bg-transparent">
+                                <tbody>
+                                    <tr>
+                                        <td class="ps-3 py-2 bg-transparent text-muted">Minimum Weight</td>
+                                        <td class="text-end pe-3 py-2 fw-bold bg-transparent">{{
+                                            weight_height.weight.min }} kg</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-3 py-2 bg-transparent text-muted">Maximum Weight</td>
+                                        <td class="text-end pe-3 py-2 fw-bold bg-transparent">{{
+                                            weight_height.weight.max }} kg</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-3 py-2 bg-transparent text-muted">Average Weight</td>
+                                        <td class="text-end pe-3 py-2 fw-bold bg-transparent">{{
+                                            weight_height.weight.average }} kg</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0 metric-summary-card">
+                        <div class="card-header bg-transparent text-dark py-2 border-0">
+                            <h6 class="mb-0 fw-bold"><i class="fas fa-heartbeat text-danger me-2"></i> BMI Summary Stats
+                            </h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-sm metric-summary-table mb-0 bg-transparent">
+                                <tbody>
+                                    <tr>
+                                        <td class="ps-3 py-2 bg-transparent text-muted">Lowest BMI</td>
+                                        <td class="text-end pe-3 py-2 fw-bold bg-transparent">{{ weight_height.bmi.min
+                                            }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-3 py-2 bg-transparent text-muted">Highest BMI</td>
+                                        <td class="text-end pe-3 py-2 fw-bold bg-transparent">{{ weight_height.bmi.max
+                                            }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-3 py-2 bg-transparent text-muted">Average BMI</td>
+                                        <td class="text-end pe-3 py-2 fw-bold bg-transparent">{{
+                                            weight_height.bmi.average }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
+            {% endcall %}
         </div>
     </div>
 
-</div>
-{% endblock %}
+    <!-- Body Metrics Charts -->
+    <div class="row mb-4" id="bodyMetricsCharts">
+        <div class="col-lg-6 col-md-12 mb-3">
+            {% call components.card(title="Weight Trend (kg)", icon="fas fa-weight-hanging text-primary",
+            class="shadow-sm h-100", header_class="bg-white text-dark border-0 pb-0") %}
+            <div class="chart-container"
+                style="height: 250px; margin: 0 auto; box-shadow: none; border-radius: 0; padding: 0;">
+                <canvas id="weightTrendChart"></canvas>
+            </div>
+            {% endcall %}
+        </div>
+        <div class="col-lg-6 col-md-12 mb-3">
+            {% call components.card(title="BMI Progression", icon="fas fa-heartbeat text-danger", class="shadow-sm
+            h-100", header_class="bg-white text-dark border-0 pb-0") %}
+            <div class="chart-container"
+                style="height: 250px; margin: 0 auto; box-shadow: none; border-radius: 0; padding: 0;">
+                <canvas id="bmiTrendChart"></canvas>
+            </div>
+            {% endcall %}
+        </div>
+    </div>
+    {% endblock %}
+
+
+
+

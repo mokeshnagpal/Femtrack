@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% import "macros.html" as components %}
+
+{% block title %}{{ title }} - Femtrack{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dateInput = document.getElementById('date');
+    const weightInput = document.getElementById('weight');
+    const heightInput = document.getElementById('height');
+    const bmiDisplay = document.getElementById('bmi_display');
+    const bmiCategory = document.getElementById('bmi_category');
+    const autofillCheckbox = document.getElementById('use_previous');
+    const autofillMessage = document.getElementById('autofill_message');
+    
+    // Set date to today by default for new entries
+    {% if not entry %}
+    if (dateInput && !dateInput.value) {
+        dateInput.valueAsDate = new Date();
+    }
+    {% endif %}
+
+    // Dynamically calculate BMI
+    function updateBMIDisplay() {
+        const weight = parseFloat(weightInput.value);
+        const height = parseFloat(heightInput.value);
+        
+        if (weight > 0 && height > 0) {
+            const heightM = height / 100.0;
+            const bmi = weight / (heightM * heightM);
+            const roundedBMI = bmi.toFixed(2);
+            
+            bmiDisplay.textContent = roundedBMI;
+            
+            let category = 'Normal';
+            let badgeClass = 'bg-success';
+            
+            if (bmi < 18.5) {
+                category = 'Underweight';
+                badgeClass = 'bg-warning text-dark';
+            } else if (bmi < 25.0) {
+                category = 'Normal';
+                badgeClass = 'bg-success';
+            } else if (bmi < 30.0) {
+                category = 'Overweight';
+                badgeClass = 'bg-warning text-dark';
+            } else {
+                category = 'Obese';
+                badgeClass = 'bg-danger';
+            }
+            
+            bmiCategory.innerHTML = `<span class="badge ${badgeClass}">${category}</span>`;
+        } else {
+            bmiDisplay.textContent = '--';
+            bmiCategory.innerHTML = '<span class="badge bg-secondary">Pending</span>';
+        }
+    }
+
+    weightInput.addEventListener('input', updateBMIDisplay);
+    heightInput.addEventListener('input', updateBMIDisplay);
+    
+    // Run initial display calculation (useful in edit mode)
+    updateBMIDisplay();
+
+    // Previous value autofill functionality
+    if (autofillCheckbox) {
+        autofillCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                autofillMessage.classList.add('d-none');
+                
+                fetch('/api/weight-height/latest')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data && !data.error) {
+                            if (data.weight) weightInput.value = data.weight;
+                            if (data.height) heightInput.value = data.height;
+                            updateBMIDisplay();
+                            autofillMessage.className = 'text-success small mt-1';
+                            autofillMessage.textContent = 'Autofill successful!';
+                            autofillMessage.classList.remove('d-none');
+                        } else {
+                            autofillMessage.className = 'text-danger small mt-1';
+                            autofillMessage.textContent = 'No previous data found';
+                            autofillMessage.classList.remove('d-none');
+                            this.checked = false;
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Error autofilling:', err);
+                        autofillMessage.className = 'text-danger small mt-1';
+                        autofillMessage.textContent = 'Error loading previous data';
+                        autofillMessage.classList.remove('d-none');
+                        this.checked = false;
+                    });
+            } else {
+                autofillMessage.classList.add('d-none');
+            }
+        });
+    }
+
+    // Form client-side validation
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        let isValid = true;
+        const errors = [];
+        
+        const weight = parseFloat(weightInput.value);
+        const height = parseFloat(heightInput.value);
+        
+        if (isNaN(weight) || weight <= 0) {
+            isValid = false;
+            errors.push('Weight must be a valid number greater than 0.');
+        }
+        
+        if (isNaN(height) || height <= 0) {
+            isValid = false;
+            errors.push('Height must be a valid number greater than 0.');
+        }
+        
+        if (!isValid) {
+            e.preventDefault();
+            const errorBox = document.getElementById('formErrorBox');
+            const errorList = document.getElementById('formErrorList');
+            
+            errorList.innerHTML = '';
+            errors.forEach(err => {
+                const li = document.createElement('li');
+                li.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i>${err}`;
+                errorList.appendChild(li);
+            });
+            errorBox.classList.remove('d-none');
+            errorBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    });
+});
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-6 col-lg-8 col-md-10 col-sm-12">
+        <!-- Error Alert -->
+        <div id="formErrorBox" class="alert alert-danger d-none mb-4" role="alert">
+            <h5 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> Validation Issues</h5>
+            <ul id="formErrorList" class="mb-0 ps-0 list-unstyled small"></ul>
+        </div>
+
+        <div class="card shadow-lg">
+            <div class="card-header bg-gradient-primary text-white text-center py-4">
+                <h3 class="mb-1"><i class="fas fa-weight"></i> {{ title }}</h3>
+                <p class="mb-0 small">Keep track of your weight, height, and body mass index</p>
+            </div>
+            
+            <div class="card-body p-4">
+                <form method="POST" action="{{ action_url }}">
+                    
+                    <!-- Date Input -->
+                    {{ components.input_box(name="date", label="Date", type="date", required=True, id="date", value=entry.date if entry else '', icon="fas fa-calendar-alt text-primary", class="mb-3") }}
+
+                    {% if not entry %}
+                    <!-- Autofill Section for New Entries -->
+                    <div class="mb-4 p-2 bg-light rounded border border-light-subtle">
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="use_previous">
+                            <label class="form-check-label fw-bold small text-secondary" for="use_previous">
+                                Use Previous Recorded Values
+                            </label>
+                        </div>
+                        <div id="autofill_message" class="d-none small"></div>
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <!-- Weight Input -->
+                        {{ components.input_box(name="weight", label="Weight (kg)", type="number", required=True, step="0.1", min="0.1", id="weight", value=entry.weight if entry else '', placeholder="e.g. 62.5", icon="fas fa-weight-hanging text-primary", class="col-6 mb-3") }}
+                        
+                        <!-- Height Input -->
+                        {{ components.input_box(name="height", label="Height (cm)", type="number", required=True, step="0.1", min="0.1", id="height", value=entry.height if entry else '', placeholder="e.g. 165", icon="fas fa-ruler-vertical text-primary", class="col-6 mb-3") }}
+                    </div>
+
+                    <!-- Dynamic BMI Summary Card -->
+                    <div class="card mb-4 bg-gradient-info text-white border-0">
+                        <div class="card-body py-3 d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-0 fw-bold">Estimated BMI</h6>
+                                <small class="text-white-50">Calculated automatically</small>
+                            </div>
+                            <div class="text-end">
+                                <h2 class="mb-0 fw-bold d-inline-block me-2" id="bmi_display">--</h2>
+                                <span id="bmi_category"><span class="badge bg-secondary">Pending</span></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-grid gap-2">
+                        {{ components.btn(text="Save Metrics", type="submit", variant="primary", class="btn-lg fw-bold", icon="fas fa-save") }}
+                        {{ components.btn(text="Back to Entries", variant="secondary", outline=True, href="/weight-height", icon="fas fa-arrow-left") }}
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

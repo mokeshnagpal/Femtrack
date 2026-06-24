@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% import "macros.html" as components %}
+
+{% block title %}{{ title }} - Femtrack{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-7 col-lg-8 col-md-10">
+        {% call components.card(title=title, icon="fas fa-heart", class="shadow-lg", header_class="bg-primary text-white") %}
+        <form method="POST" id="sexEntryForm">
+            {{ components.input_box(name="date", label="Date", type="date", required=True, id="date", value=entry.date if entry else '', icon="fas fa-calendar") }}
+
+            {% set sex_type_options = [] %}
+            {% for option in sex_types %}
+                {% set _ = sex_type_options.append((option, option)) %}
+            {% endfor %}
+            {{ components.dropdown(name="sex_type", label="Sex Type", options=sex_type_options, selected_value=entry.sex_type if entry else '', id="sex_type", required=True, icon="fas fa-heart") }}
+
+            {% set position_options = [("", "Not set")] %}
+            {% for option in positions %}
+                {% set _ = position_options.append((option, option)) %}
+            {% endfor %}
+            {{ components.dropdown(name="position", label="Position", options=position_options, selected_value=entry.position if entry else '', id="position", icon="fas fa-person") }}
+
+            {{ components.textarea(name="notes", label="Optional Details", value=entry.notes if entry else '', placeholder="Anything you want to remember privately", rows=4, id="notes") }}
+
+            <div class="d-flex flex-wrap gap-2 justify-content-end">
+                {{ components.btn(text="Cancel", variant="secondary", outline=True, href="/sex-entries", icon="fas fa-arrow-left") }}
+                {{ components.btn(text="Save Entry", type="submit", variant="primary", icon="fas fa-save") }}
+            </div>
+        </form>
+        {% endcall %}
+    </div>
+</div>
+{% endblock %}
+

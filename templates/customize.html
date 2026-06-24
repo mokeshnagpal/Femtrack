@@ -1,77 +1,134 @@
 {% extends "base.html" %}
+{% import "macros.html" as components %}
 
 {% block title %}Customize Symptoms - Femtrack{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <div class="card shadow-lg mb-4">
-            <div class="card-header bg-primary text-white">
-                <h4 class="mb-0"><i class="fas fa-sliders-h"></i> Customize Your Symptoms</h4>
-            </div>
-            
-            <div class="card-body">
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle"></i> Click on a symptom to view, edit, or delete it
-                </div>
-
-                <!-- Symptoms Grid -->
-                <div class="row g-3 mb-4">
-                    {% for symptom in symptoms %}
-                    <div class="col-12 col-sm-6 col-md-4">
-                        <div class="symptom-card card shadow-sm h-100 cursor-pointer" onclick="openSymptomModal('{{ symptom.name }}', '{{ symptom.display_name }}', {{ symptom.has_intensity|lower }}, {{ symptom.system_default|lower }})">
-                            <div class="card-body">
-                                <h6 class="card-title mb-2">
-                                    <span id="icon-{{ symptom.name }}" class="symptom-icon-wrapper me-2">
-                                        {% if symptom.name == 'period' %}
-                                            <img src="{{ url_for('static', filename='icons/period.svg') }}" alt="Period" class="symptom-icon text-danger">
-                                        {% elif symptom.name == 'weird' %}
-                                            <img src="{{ url_for('static', filename='icons/weird.svg') }}" alt="Feeling Weird" class="symptom-icon text-warning">
-                                        {% elif symptom.name == 'craving' %}
-                                            <img src="{{ url_for('static', filename='icons/craving.svg') }}" alt="Craving" class="symptom-icon text-info">
-                                        {% elif symptom.name == 'irritation' %}
-                                            <img src="{{ url_for('static', filename='icons/irritation.svg') }}" alt="Irritation" class="symptom-icon text-success">
-                                        {% elif symptom.name == 'headache' %}
-                                            <img src="{{ url_for('static', filename='icons/headache.svg') }}" alt="Headache" class="symptom-icon text-primary">
-                                        {% else %}
-                                            <img src="{{ url_for('static', filename='icons/period.svg') }}" alt="Symptom" class="symptom-icon text-primary">
-                                        {% endif %}
-                                    </span>
-                                    {{ symptom.display_name }}
-                                </h6>
-                                <p class="card-text small text-muted mb-2">
-                                    {% if symptom.has_intensity %}
-                                        Intensity: Low, Medium, High
+        {% call components.card(title="Customize Your Symptoms", icon="fas fa-sliders-h", class="shadow-lg mb-4", header_class="bg-primary text-white") %}
+            <!-- Symptoms Grid -->
+            <div class="row g-3 mb-4">
+                {% for symptom in symptoms %}
+                <div class="col-12 col-sm-6 col-md-4">
+                    <div class="symptom-card card shadow-sm h-100 cursor-pointer" onclick="openSymptomModal('{{ symptom.name }}', '{{ symptom.display_name }}', {{ symptom.has_intensity|lower }}, {{ symptom.system_default|lower }})">
+                        <div class="card-body">
+                            <h6 class="card-title mb-2">
+                                <span id="icon-{{ symptom.name }}" class="symptom-icon-wrapper me-2">
+                                    {% if symptom.name == 'period' %}
+                                        <img src="{{ url_for('static', filename='icons/period.svg') }}" alt="Period" class="symptom-icon text-danger">
+                                    {% elif symptom.name == 'weird' %}
+                                        <img src="{{ url_for('static', filename='icons/weird.svg') }}" alt="Feeling Weird" class="symptom-icon text-warning">
+                                    {% elif symptom.name == 'craving' %}
+                                        <img src="{{ url_for('static', filename='icons/craving.svg') }}" alt="Craving" class="symptom-icon text-info">
+                                    {% elif symptom.name == 'irritation' %}
+                                        <img src="{{ url_for('static', filename='icons/irritation.svg') }}" alt="Irritation" class="symptom-icon text-success">
+                                    {% elif symptom.name == 'headache' %}
+                                        <img src="{{ url_for('static', filename='icons/headache.svg') }}" alt="Headache" class="symptom-icon text-primary">
                                     {% else %}
-                                        Just track presence
+                                        <img src="{{ url_for('static', filename='icons/period.svg') }}" alt="Symptom" class="symptom-icon text-primary">
                                     {% endif %}
-                                </p>
-                                {% if symptom.system_default %}
-                                    <span class="badge bg-success">System Default</span>
+                                </span>
+                                {{ symptom.display_name }}
+                            </h6>
+                            <p class="card-text small text-muted mb-2">
+                                {% if symptom.has_intensity %}
+                                    Intensity: Low, Medium, High
                                 {% else %}
+                                    Just track presence
+                                {% endif %}
+                            </p>
+                            {% if symptom.system_default %}
+                                <span class="badge bg-success">System Default</span>
+                            {% else %}
+                                <span class="badge bg-info">Custom</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                <!-- Add New Symptom Card -->
+                <div class="col-12 col-sm-6 col-md-4">
+                    <div class="symptom-card card shadow-sm h-100 cursor-pointer bg-light" onclick="openAddSymptomModal()">
+                        <div class="card-body d-flex flex-column align-items-center justify-content-center text-center" style="min-height: 150px;">
+                            <i class="fas fa-plus-circle text-primary mb-2" style="font-size: 2rem;"></i>
+                            <h6 class="card-title">Add New Symptom</h6>
+                            <small class="text-muted">Create a custom symptom</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        {% call components.card(title="Customize Sex Entries", icon="fas fa-heart", class="shadow-lg", header_class="bg-info text-white") %}
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <h6 class="fw-bold mb-3"><i class="fas fa-heart me-1"></i> Sex Types</h6>
+                <div class="row g-3">
+                    {% for option in sex_types %}
+                    <div class="col-12 col-sm-6">
+                        <div class="symptom-card card shadow-sm h-100 cursor-pointer" onclick="openSexOptionModal('type', '{{ option }}', {{ (option not in custom_sex_types)|lower }})">
+                            <div class="card-body">
+                                <h6 class="card-title mb-2"><i class="fas fa-heart text-danger me-2"></i>{{ option }}</h6>
+                                <p class="card-text small text-muted mb-2">Sex entry type option</p>
+                                {% if option in custom_sex_types %}
                                     <span class="badge bg-info">Custom</span>
+                                {% else %}
+                                    <span class="badge bg-success">System Default</span>
                                 {% endif %}
                             </div>
                         </div>
                     </div>
                     {% endfor %}
-                    
-                    <!-- Add New Symptom Card -->
-                    <div class="col-12 col-sm-6 col-md-4">
-                        <div class="symptom-card card shadow-sm h-100 cursor-pointer bg-light" onclick="openAddSymptomModal()">
+                    <div class="col-12 col-sm-6">
+                        <div class="symptom-card card shadow-sm h-100 cursor-pointer bg-light" onclick="openAddSexOptionModal('type')">
                             <div class="card-body d-flex flex-column align-items-center justify-content-center text-center" style="min-height: 150px;">
                                 <i class="fas fa-plus-circle text-primary mb-2" style="font-size: 2rem;"></i>
-                                <h6 class="card-title">Add New Symptom</h6>
-                                <small class="text-muted">Create a custom symptom</small>
+                                <h6 class="card-title">Add Sex Type</h6>
+                                <small class="text-muted">Create a custom type</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <h6 class="fw-bold mb-3"><i class="fas fa-person me-1"></i> Positions</h6>
+                <div class="row g-3">
+                    {% for option in sex_positions %}
+                    <div class="col-12 col-sm-6">
+                        <div class="symptom-card card shadow-sm h-100 cursor-pointer" onclick="openSexOptionModal('position', '{{ option }}', {{ (option not in custom_sex_positions)|lower }})">
+                            <div class="card-body">
+                                <h6 class="card-title mb-2"><i class="fas fa-person text-primary me-2"></i>{{ option }}</h6>
+                                <p class="card-text small text-muted mb-2">Sex entry position option</p>
+                                {% if option in custom_sex_positions %}
+                                    <span class="badge bg-info">Custom</span>
+                                {% else %}
+                                    <span class="badge bg-success">System Default</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <div class="col-12 col-sm-6">
+                        <div class="symptom-card card shadow-sm h-100 cursor-pointer bg-light" onclick="openAddSexOptionModal('position')">
+                            <div class="card-body d-flex flex-column align-items-center justify-content-center text-center" style="min-height: 150px;">
+                                <i class="fas fa-plus-circle text-primary mb-2" style="font-size: 2rem;"></i>
+                                <h6 class="card-title">Add Position</h6>
+                                <small class="text-muted">Create a custom position</small>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+        {% endcall %}
     </div>
 </div>
-
 <!-- Symptom Detail Modal -->
 <div class="modal fade" id="symptomModal" tabindex="-1">
     <div class="modal-dialog">
@@ -144,11 +201,7 @@
                 <div class="modal-body">
                     <input type="hidden" name="action" value="add_symptom">
                     
-                    <div class="mb-3">
-                        <label for="newSymptomName" class="form-label fw-bold">Symptom Name</label>
-                        <input type="text" class="form-control" id="newSymptomName" name="symptom_name" 
-                               placeholder="e.g., Headache" required>
-                    </div>
+                    {{ components.input_box(name="symptom_name", label="Symptom Name", placeholder="e.g., Headache", required=True, id="newSymptomName") }}
                     
                     <div class="mb-3">
                         <label class="form-label fw-bold">Intensity Levels</label>
@@ -170,20 +223,60 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-plus"></i> Add Symptom
-                    </button>
+                    {{ components.btn(text="Add Symptom", type="submit", variant="success", icon="fas fa-plus") }}
                 </div>
             </form>
         </div>
     </div>
 </div>
 
+<!-- Sex Option Detail Modal -->
+<div class="modal fade" id="sexOptionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="sexOptionModalTitle"></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="sexOptionModalBody"></div>
+            <div class="modal-footer" id="sexOptionModalFooter"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Sex Option Modal -->
+<div class="modal fade" id="editSexOptionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="editSexOptionModalTitle"></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <label for="sexOptionNameInput" class="form-label fw-bold" id="sexOptionNameLabel"></label>
+                <input type="text" class="form-control" id="sexOptionNameInput" required>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveSexOption()">
+                    <i class="fas fa-save"></i> Save
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 <script>
 let currentSymptomName = null;
 let currentSymptomDisplay = null;
 let currentSymptomHasIntensity = false;
 let currentSymptomIsDefault = false;
+let currentDeleteTarget = 'symptom';
+let currentSexOptionKind = null;
+let currentSexOptionValue = '';
+let currentSexOptionIsDefault = false;
+let sexOptionModal = null;
+let editSexOptionModal = null;
+let sexOptionEditMode = 'add';
 
 let symptomModal = null;
 let confirmDeleteModal = null;
@@ -195,8 +288,108 @@ document.addEventListener('DOMContentLoaded', function() {
     confirmDeleteModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
     addSymptomModal = new bootstrap.Modal(document.getElementById('addSymptomModal'));
     editSymptomModal = new bootstrap.Modal(document.getElementById('editSymptomModal'));
+    sexOptionModal = new bootstrap.Modal(document.getElementById('sexOptionModal'));
+    editSexOptionModal = new bootstrap.Modal(document.getElementById('editSexOptionModal'));
+    window.showFemtrackToast?.('Click on a symptom to view, edit, or delete it');
 });
 
+
+function getSexOptionLabel(kind) {
+    return kind === 'type' ? 'Sex Type' : 'Position';
+}
+
+function getSexOptionFieldName(kind) {
+    return kind === 'type' ? 'sex_type_name' : 'sex_position_name';
+}
+
+function getSexOptionAction(kind, mode) {
+    if (kind === 'type') return mode + '_sex_type';
+    return mode + '_sex_position';
+}
+
+function openSexOptionModal(kind, value, isDefault) {
+    currentSexOptionKind = kind;
+    currentSexOptionValue = value;
+    currentSexOptionIsDefault = isDefault;
+    const label = getSexOptionLabel(kind);
+
+    document.getElementById('sexOptionModalTitle').innerHTML = `<i class="${kind === 'type' ? 'fas fa-heart' : 'fas fa-person'} me-2"></i>${value}`;
+    document.getElementById('sexOptionModalBody').innerHTML = `
+        <div class="mb-3"><strong>${label}</strong><br><small class="text-muted">Used in Sex Entry forms and analytics labels.</small></div>
+        <div class="alert ${isDefault ? 'alert-warning' : 'alert-info'} mb-0">
+            <i class="${isDefault ? 'fas fa-star' : 'fas fa-user-circle'}"></i>
+            <strong>${isDefault ? 'System Default' : 'Custom Option'}</strong><br>
+            ${isDefault ? 'Default options stay available for every user and cannot be edited or deleted here.' : 'You can edit or remove this custom option.'}
+        </div>
+    `;
+
+    let footerHtml = '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>';
+    if (!isDefault) {
+        footerHtml += ' <button type="button" class="btn btn-primary" onclick="openEditSexOptionModal()"><i class="fas fa-edit"></i> Edit</button>';
+        footerHtml += ' <button type="button" class="btn btn-danger" onclick="openSexDeleteConfirm()"><i class="fas fa-trash"></i> Delete</button>';
+    }
+    document.getElementById('sexOptionModalFooter').innerHTML = footerHtml;
+    sexOptionModal.show();
+}
+
+function openAddSexOptionModal(kind) {
+    currentSexOptionKind = kind;
+    currentSexOptionValue = '';
+    currentSexOptionIsDefault = false;
+    sexOptionEditMode = 'add';
+    const label = getSexOptionLabel(kind);
+    document.getElementById('editSexOptionModalTitle').innerHTML = `<i class="fas fa-plus-circle"></i> Add ${label}`;
+    document.getElementById('sexOptionNameLabel').textContent = label;
+    document.getElementById('sexOptionNameInput').value = '';
+    editSexOptionModal.show();
+}
+
+function openEditSexOptionModal() {
+    if (!currentSexOptionKind || currentSexOptionIsDefault) return;
+    sexOptionEditMode = 'edit';
+    const label = getSexOptionLabel(currentSexOptionKind);
+    document.getElementById('editSexOptionModalTitle').innerHTML = `<i class="fas fa-edit"></i> Edit ${label}`;
+    document.getElementById('sexOptionNameLabel').textContent = label;
+    document.getElementById('sexOptionNameInput').value = currentSexOptionValue;
+    sexOptionModal.hide();
+    editSexOptionModal.show();
+}
+
+function saveSexOption() {
+    const newValue = document.getElementById('sexOptionNameInput').value.trim();
+    if (!newValue) {
+        window.showFemtrackToast?.(`${getSexOptionLabel(currentSexOptionKind)} is required`, 'error');
+        return;
+    }
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/customize';
+    const fieldName = getSexOptionFieldName(currentSexOptionKind);
+    const action = getSexOptionAction(currentSexOptionKind, sexOptionEditMode);
+    const oldFieldName = currentSexOptionKind === 'type' ? 'old_sex_type_name' : 'old_sex_position_name';
+    form.innerHTML = `
+        <input type="hidden" name="action" value="${action}">
+        <input type="hidden" name="${fieldName}" value="${newValue}">
+        ${sexOptionEditMode === 'edit' ? `<input type="hidden" name="${oldFieldName}" value="${currentSexOptionValue}">` : ''}
+    `;
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function openSexDeleteConfirm() {
+    if (!currentSexOptionKind || currentSexOptionIsDefault) return;
+    currentDeleteTarget = 'sex_option';
+    sexOptionModal.hide();
+    const label = getSexOptionLabel(currentSexOptionKind);
+    document.getElementById('confirmDeleteModalBody').innerHTML = `
+        <p>Are you sure you want to delete <strong>${currentSexOptionValue}</strong>?</p>
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-circle"></i> <strong>Warning!</strong> This custom ${label.toLowerCase()} will be removed from future Sex Entry forms.
+        </div>
+    `;
+    confirmDeleteModal.show();
+}
 function openSymptomModal(symptomName, displayName, hasIntensity, isDefault) {
     currentSymptomName = symptomName;
     currentSymptomDisplay = displayName;
@@ -362,7 +555,7 @@ function saveEditSymptom() {
     const oldHasIntensity = currentSymptomHasIntensity;
     
     if (!newDisplayName.trim()) {
-        alert('Display name is required');
+        window.showFemtrackToast?.('Display name is required', 'error');
         return;
     }
     
@@ -402,12 +595,12 @@ document.getElementById('addSymptomForm')?.addEventListener('submit', function(e
     
     .symptom-card:hover {
         transform: translateY(-4px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
-        border-color: #667eea;
+        box-shadow: 0 4px 12px rgba(159, 47, 85, 0.3) !important;
+        border-color: #9f2f55;
     }
     
     .symptom-card.bg-light:hover {
-        background-color: rgba(102, 126, 234, 0.1) !important;
+        background-color: rgba(159, 47, 85, 0.1) !important;
     }
     
     html[data-bs-theme="dark"] .symptom-card {
@@ -416,7 +609,7 @@ document.getElementById('addSymptomForm')?.addEventListener('submit', function(e
     }
     
     html[data-bs-theme="dark"] .symptom-card:hover {
-        border-color: #764ba2;
+        border-color: #6f3a75;
         background-color: #333333;
     }
     
@@ -460,7 +653,7 @@ document.getElementById('addSymptomForm')?.addEventListener('submit', function(e
     }
     
     .symptom-icon-wrapper.text-info {
-        color: #0dcaf0;
+        color: #c05621;
     }
     
     .symptom-icon-wrapper.text-success {
@@ -487,3 +680,13 @@ document.getElementById('addSymptomForm')?.addEventListener('submit', function(e
     }
 </style>
 {% endblock %}
+
+
+
+
+
+
+
+
+
+

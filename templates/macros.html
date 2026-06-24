@@ -1,0 +1,225 @@
+﻿{# templates/macros.html #}
+
+{% macro card(title, icon=None, class="", header_class="", id="") %}
+<div class="card {{ class }}" {% if id %}id="{{ id }}"{% endif %}>
+    {% if title %}
+    <div class="card-header {{ header_class }} py-3 d-flex align-items-center">
+        {% if icon %}
+        <i class="{{ icon }} me-2"></i>
+        {% endif %}
+        <h5 class="mb-0 fw-bold">{{ title }}</h5>
+    </div>
+    {% endif %}
+    <div class="card-body">
+        {{ caller() }}
+    </div>
+</div>
+{% endmacro %}
+
+{% macro btn(text, type="button", variant="primary", class="", outline=False, icon=None, href=None, onclick=None, id="", title="", form=None) %}
+{% set btn_class = "btn btn-outline-" ~ variant if outline else "btn btn-" ~ variant %}
+{% if href %}
+<a href="{{ href }}" class="{{ btn_class }} {{ class }}" {% if id %}id="{{ id }}"{% endif %} {% if onclick %}onclick="{{ onclick }}"{% endif %} {% if title %}title="{{ title }}"{% endif %} role="button">
+    {% if icon %}<i class="{{ icon }} me-1"></i>{% endif %}{{ text }}
+</a>
+{% else %}
+<button type="{{ type }}" class="{{ btn_class }} {{ class }}" {% if id %}id="{{ id }}"{% endif %} {% if onclick %}onclick="{{ onclick }}"{% endif %} {% if title %}title="{{ title }}"{% endif %} {% if form %}form="{{ form }}"{% endif %}>
+    {% if icon %}<i class="{{ icon }} me-1"></i>{% endif %}{{ text }}
+</button>
+{% endif %}
+{% endmacro %}
+
+{% macro table(headers, id="", class="") %}
+<div class="table-responsive">
+    <table class="table table-hover align-middle mb-0 {{ class }}" {% if id %}id="{{ id }}"{% endif %}>
+        <thead>
+            <tr>
+                {% for header in headers %}
+                <th {% if loop.first %}class="ps-4"{% elif loop.last %}class="text-end pe-4"{% endif %}>{{ header }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {{ caller() }}
+        </tbody>
+    </table>
+</div>
+{% endmacro %}
+
+{% macro pagination(current_page, total_pages, base_url, total_count=0, per_page=12) %}
+<div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+    <small class="text-muted">
+        Showing <strong>{{ ((current_page - 1) * per_page) + 1 if total_count > 0 else 0 }}</strong> to <strong>{{ [current_page * per_page, total_count]|min if total_count > 0 else 0 }}</strong> of <strong>{{ total_count }}</strong> entries
+    </small>
+    {% if total_pages > 1 %}
+    <nav>
+        <ul class="pagination pagination-sm mb-0">
+            <!-- Previous Button -->
+            <li class="page-item {% if current_page <= 1 %}disabled{% endif %}">
+                <a class="page-link" href="{% if current_page > 1 %}{{ base_url }}?page={{ current_page - 1 }}{% else %}#{% endif %}">Previous</a>
+            </li>
+            
+            <!-- Page Numbers -->
+            {% set shown_pages = namespace(last=0) %}
+            {% for p in range(1, total_pages + 1) %}
+                {% set should_show = p == 1 or p == total_pages or (p >= current_page - 1 and p <= current_page + 1) or (current_page <= 3 and p <= 3) or (current_page >= total_pages - 2 and p >= total_pages - 2) %}
+                {% if should_show %}
+                    {% if shown_pages.last and p > shown_pages.last + 1 %}
+                    <li class="page-item disabled" aria-hidden="true">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                    <li class="page-item {% if p == current_page %}active{% endif %}">
+                        <a class="page-link" href="{{ base_url }}?page={{ p }}">{{ p }}</a>
+                    </li>
+                    {% set shown_pages.last = p %}
+                {% endif %}
+            {% endfor %}
+            
+            <!-- Next Button -->
+            <li class="page-item {% if current_page >= total_pages %}disabled{% endif %}">
+                <a class="page-link" href="{% if current_page < total_pages %}{{ base_url }}?page={{ current_page + 1 }}{% else %}#{% endif %}">Next</a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endmacro %}
+
+{% macro input_box(name, label=None, type="text", value="", placeholder="", required=False, min=None, max=None, step=None, id=None, icon=None, class="") %}
+{% set input_id = id if id else name %}
+<div class="mb-3 {{ class }}">
+    {% if label %}
+    <label for="{{ input_id }}" class="form-label fw-bold">
+        {% if icon %}<i class="{{ icon }} me-1"></i>{% endif %}{{ label }}
+    </label>
+    {% endif %}
+    <input type="{{ type }}" class="form-control" id="{{ input_id }}" name="{{ name }}" 
+           placeholder="{{ placeholder }}" {% if required %}required{% endif %}
+           {% if min is not none %}min="{{ min }}"{% endif %} 
+           {% if max is not none %}max="{{ max }}"{% endif %} 
+           {% if step is not none %}step="{{ step }}"{% endif %} 
+           value="{{ value }}">
+</div>
+{% endmacro %}
+
+{% macro dropdown(name, label, options, selected_value="", id=None, required=False, icon=None, class="") %}
+{% set select_id = id if id else name %}
+<div class="mb-3 custom-dropdown-container {{ class }}" id="container_{{ select_id }}">
+    {% if label %}
+    <label class="form-label fw-bold">
+        {% if icon %}<i class="{{ icon }} me-1"></i>{% endif %}{{ label }}
+    </label>
+    {% endif %}
+    
+    <!-- Hidden real select for form submission -->
+    <select class="d-none" id="{{ select_id }}" name="{{ name }}" {% if required %}required{% endif %}>
+        {% for val, label_text in options %}
+        <option value="{{ val }}" {% if val|string == selected_value|string %}selected{% endif %}>{{ label_text }}</option>
+        {% endfor %}
+    </select>
+    
+    <!-- Custom Styled Dropdown UI -->
+    <div class="dropdown custom-select-dropdown">
+        <button class="btn btn-outline-secondary w-100 text-start d-flex justify-content-between align-items-center dropdown-toggle" 
+                type="button" id="trigger_{{ select_id }}" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="selected-text">
+                {% set ns = namespace(found=false) %}
+                {% for val, label_text in options %}
+                    {% if val|string == selected_value|string %}
+                        {{ label_text }}
+                        {% set ns.found = true %}
+                    {% endif %}
+                {% endfor %}
+                {% if not ns.found and options|length > 0 %}
+                    {{ options[0][1] }}
+                {% endif %}
+            </span>
+        </button>
+        <ul class="dropdown-menu w-100" aria-labelledby="trigger_{{ select_id }}">
+            {% for val, label_text in options %}
+            <li>
+                <a class="dropdown-item {% if val|string == selected_value|string %}active{% endif %}" 
+                   href="#" data-value="{{ val }}" onclick="selectCustomDropdownOption('{{ select_id }}', '{{ val }}', this); return false;">
+                    {{ label_text }}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endmacro %}
+
+{% macro checkbox(name, label, checked=False, id=None, value="", class="") %}
+{% set cb_id = id if id else name %}
+<div class="form-check {{ class }}">
+    <input class="form-check-input" type="checkbox" name="{{ name }}" id="{{ cb_id }}" {% if checked %}checked{% endif %} {% if value %}value="{{ value }}"{% endif %}>
+    <label class="form-check-label fw-bold" for="{{ cb_id }}">
+        {{ label }}
+    </label>
+</div>
+{% endmacro %}
+
+{% macro textarea(name, label=None, value="", placeholder="", rows=3, id=None, class="") %}
+{% set ta_id = id if id else name %}
+<div class="mb-3 {{ class }}">
+    {% if label %}
+    <label for="{{ ta_id }}" class="form-label fw-bold">{{ label }}</label>
+    {% endif %}
+    <textarea class="form-control" id="{{ ta_id }}" name="{{ name }}" rows="{{ rows }}" placeholder="{{ placeholder }}">{{ value }}</textarea>
+</div>
+{% endmacro %}
+
+{% macro stat_card(title, value, unit="", subtext="", icon=None, trend_class="", trend_text="", badge_color="", badge_text="") %}
+<div class="card h-100 shadow-sm border-0">
+    <div class="card-body p-3 d-flex flex-column justify-content-between">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted text-uppercase fw-bold small">{{ title }}</span>
+            {% if icon %}
+            <span class="fs-4 text-primary"><i class="{{ icon }}"></i></span>
+            {% endif %}
+        </div>
+        <div class="d-flex align-items-baseline my-1">
+            <h3 class="mb-0 fw-bold">{{ value }}</h3>
+            {% if unit %}
+            <span class="text-muted ms-1 small">{{ unit }}</span>
+            {% endif %}
+        </div>
+        <div>
+            {% if subtext %}
+            <small class="text-muted d-block">{{ subtext }}</small>
+            {% endif %}
+            {% if trend_text %}
+            <small class="{{ trend_class }} d-block mt-1 font-weight-bold">
+                {{ trend_text }}
+            </small>
+            {% endif %}
+            {% if badge_text %}
+            <span class="badge bg-{{ badge_color }} mt-1">{{ badge_text }}</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+{% macro alert(message, category="info", icon=None) %}
+<div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+    {% if icon %}<i class="{{ icon }} me-2"></i>{% endif %}{{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endmacro %}
+
+{% macro error_list(errors) %}
+{% if errors %}
+<div class="alert alert-danger shadow-sm" role="alert">
+    <h5 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> Form Errors</h5>
+    <ul class="mb-0 list-unstyled">
+        {% for error in errors %}
+        <li><i class="fas fa-chevron-right text-danger me-2"></i>{{ error }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+{% endmacro %}
+
+

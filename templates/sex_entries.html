@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% import "macros.html" as components %}
+
+{% block title %}Sex Entries - Femtrack{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="fas fa-heart"></i> Sex Entries</h2>
+            <p class="text-muted mb-0">Track intimacy details privately alongside your cycle data</p>
+        </div>
+        {% if not is_view_only %}
+        {{ components.btn(text="Add Sex Entry", variant="primary", href="/sex-entries/add", icon="fas fa-plus") }}
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        {% if not entries or entries|length == 0 %}
+        <div class="alert alert-info text-center py-5 shadow-sm" role="alert">
+            <i class="fas fa-heart fa-3x mb-3 text-muted"></i>
+            <h5><strong>No Sex Entries Yet</strong></h5>
+            <p class="mb-3">Add your first private sex entry to include it in analytics and forecast context.</p>
+            {% if not is_view_only %}
+            {{ components.btn(text="Add First Sex Entry", variant="primary", class="btn-sm", href="/sex-entries/add", icon="fas fa-plus") }}
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="card shadow">
+            <div class="card-body p-0">
+                {% call components.table(headers=[
+                    'Date <i class="fas fa-sort text-muted ms-1 sort-icon" data-column="date"></i>'|safe,
+                    'Type <i class="fas fa-sort text-muted ms-1 sort-icon" data-column="sex_type"></i>'|safe,
+                    'Position <i class="fas fa-sort text-muted ms-1 sort-icon" data-column="position"></i>'|safe,
+                    'Notes',
+                    'Actions'
+                ], id="sexEntriesTable") %}
+                {% for entry in entries %}
+                <tr class="align-middle sex-entry-row" data-date="{{ entry.date }}" data-sex_type="{{ entry.sex_type }}" data-position="{{ entry.position }}">
+                    <td class="ps-4 fw-bold">{{ entry.date | format_date }}</td>
+                    <td><span class="badge bg-info">{{ entry.sex_type }}</span></td>
+                    <td>{{ entry.position or 'Not set' }}</td>
+                    <td>{{ entry.notes[:60] }}{% if entry.notes and entry.notes|length > 60 %}...{% endif %}</td>
+                    <td class="text-end pe-4">
+                        {% if not is_view_only %}
+                        <div class="table-action-buttons">
+                            {{ components.btn(text="Edit", variant="primary", outline=True, class="btn-sm", icon="fas fa-edit", href="/sex-entries/edit/" ~ entry.id) }}
+                            <form method="POST" action="/sex-entries/delete/{{ entry.id }}" onsubmit="return confirm('Delete this sex entry?');">
+                                {{ components.btn(text="Delete", type="submit", variant="danger", outline=True, class="btn-sm", icon="fas fa-trash") }}
+                            </form>
+                        </div>
+                        {% else %}
+                        <span class="text-muted small">Read-only</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% endcall %}
+                <div class="px-4 pb-3">
+                    {{ components.pagination(current_page, total_pages, '/sex-entries', total_count, 11) }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let sexSortColumn = 'date';
+let sexSortDirection = 'desc';
+
+document.addEventListener('DOMContentLoaded', function() {
+    const table = document.getElementById('sexEntriesTable');
+    if (!table) return;
+    const cols = ['date', 'sex_type', 'position'];
+    table.querySelectorAll('thead th').forEach((th, idx) => {
+        if (idx < cols.length) {
+            th.style.cursor = 'pointer';
+            th.addEventListener('click', () => sortSexTable(cols[idx]));
+        }
+    });
+});
+
+function sortSexTable(column) {
+    const table = document.getElementById('sexEntriesTable');
+    const tbody = table?.querySelector('tbody');
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    sexSortDirection = sexSortColumn === column && sexSortDirection === 'asc' ? 'desc' : 'asc';
+    sexSortColumn = column;
+    rows.sort((a, b) => {
+        let av = a.getAttribute(`data-${column}`) || '';
+        let bv = b.getAttribute(`data-${column}`) || '';
+        if (column === 'date') { av = new Date(av); bv = new Date(bv); }
+        return sexSortDirection === 'asc' ? (av > bv ? 1 : av < bv ? -1 : 0) : (av < bv ? 1 : av > bv ? -1 : 0);
+    });
+    rows.forEach(row => tbody.appendChild(row));
+}
+</script>
+{% endblock %}
+

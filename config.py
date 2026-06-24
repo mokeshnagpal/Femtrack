@@ -40,7 +40,14 @@ db = firestore.client()
 
 # Admin users configuration
 ADMIN_USERS = os.getenv('ADMIN_USER', '').split(',') if os.getenv('ADMIN_USER') else []
-ADMIN_USERS = [email.strip() for email in ADMIN_USERS]
+ADMIN_USERS = [email.strip().lower() for email in ADMIN_USERS]
+
+# Default password for admin accounts on first login
+DEFAULT_PASS = os.getenv('DEFAULT_PASS', 'Mokesh87654321')
+
+# SMTP settings for OTP email delivery
+EMAIL_USER = os.getenv('EMAIL_USER')
+EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
 
 # View password (shared analytics access)
 VIEW_PASS = os.getenv('VIEW_PASS', 'Mokesh87654321')

@@ -1,121 +1,79 @@
 {% extends "base.html" %}
+{% import "macros.html" as components %}
 
-{% block title %}View Entries - Femtrack{% endblock %}
+{% block title %}Menses - Femtrack{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12">
         <div class="card shadow-lg">
-            <div class="card-header bg-gradient-primary text-white text-center py-4">
-                <h3 class="mb-1"><i class="fas fa-list"></i> Your Cycle Entries</h3>
-                <p class="mb-0 small">View, edit, and manage all your tracked entries</p>
+            <div class="card-header bg-gradient-primary text-white py-4">
+                <div class="d-flex justify-content-between align-items-center px-3 flex-wrap gap-2">
+                    <div class="text-center text-md-start">
+                        <h3 class="mb-1"><i class="fas fa-list"></i> Your Cycle Entries</h3>
+                        <p class="mb-0 small">View, edit, and manage all your tracked entries</p>
+                    </div>
+                    {% if not is_view_only %}
+                    <div>
+                        {{ components.btn(text="New Entry", variant="light", class="text-primary fw-bold shadow-sm", href="/input", icon="fas fa-plus") }}
+                    </div>
+                    {% endif %}
+                </div>
             </div>
             
             <div class="card-body p-4">
                 {% if entries %}
-                    <!-- Filter & Pagination Controls -->
-                    <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
-                        <div>
-                            <label for="entriesFilter" class="form-label mb-0 small"><strong>Filter:</strong></label>
-                            <select class="form-select form-select-sm d-inline w-auto" id="entriesFilter" style="max-width: 200px;">
-                                <option value="all" selected>All Entries</option>
-                                <option value="period">Period Entries</option>
-                                <option value="symptoms">Symptom Entries</option>
-                                <option value="recent">Recent (Last 7 Days)</option>
-                                <option value="notes">With Notes</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="entriesPerPage" class="form-label mb-0 small"><strong>Per Page:</strong></label>
-                            <select class="form-select form-select-sm d-inline w-auto" id="entriesPerPage">
-                                <option value="10" selected>10</option>
-                                <option value="25">25</option>
-                                <option value="50">50</option>
-                                <option value="100">100</option>
-                            </select>
-                        </div>
-                    </div>
+                    <!-- Fixed to 12 items per page server-side -->
 
                     <!-- Table View for Desktop -->
-                    <div class="table-responsive d-none d-md-block">
-                        <table class="table table-hover mb-0" id="entriesTable">
-                            <thead class="table-primary">
-                                <tr>
-                                    <th style="cursor: pointer;" onclick="sortTable('date')" title="Click to sort">
-                                        Date <span class="sort-indicator" data-column="date"></span>
-                                    </th>
-                                    <th style="cursor: pointer;" onclick="sortTable('symptoms')" title="Click to sort">
-                                        Symptoms <span class="sort-indicator" data-column="symptoms"></span>
-                                    </th>
-                                    <th style="cursor: pointer;" onclick="sortTable('flow')" title="Click to sort">
-                                        Flow/Details <span class="sort-indicator" data-column="flow"></span>
-                                    </th>
-                                    <th style="cursor: pointer;" onclick="sortTable('notes')" title="Click to sort">
-                                        Notes <span class="sort-indicator" data-column="notes"></span>
-                                    </th>
-                                    <th class="text-center">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tableBody">
-                                {% for entry in entries %}
-                                <tr class="align-middle entry-row" data-date="{{ entry.date }}" data-entry-id="{{ entry.id }}">
-                                    <td>
-                                        <strong>{{ entry.date | format_date }}</strong>
-                                    </td>
-                                    <td>
-                                        {% set symptom_names = [] %}
-                                        {% for symptom in entry.symptoms %}
-                                            {% if symptom_names.append(symptom.name|replace('_', ' ')|title) %}{% endif %}
-                                        {% endfor %}
-                                        <span class="badge bg-info">{{ symptom_names|join(', ') }}</span>
-                                    </td>
-                                    <td>
-                                        {% for symptom in entry.symptoms %}
-                                            {% if symptom.name == 'period' and symptom.flow_amount %}
-                                                <small><i class="fas fa-tint text-danger"></i> Flow: {{ symptom.flow_amount }}/10</small><br>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                    <td>
-                                        {{ entry.notes[:50] }}{% if entry.notes and entry.notes|length > 50 %}...{% endif %}
-                                    </td>
-                                    <td class="text-center">
-                                        <button class="btn btn-sm btn-info" onclick="viewDetails('{{ entry.id }}')">
-                                            <i class="fas fa-eye"></i> View
-                                        </button>
-                                        {% if not is_view_only %}
-                                        <a href="/input?entry_id={{ entry.id }}" class="btn btn-sm btn-primary">
-                                            <i class="fas fa-edit"></i> Edit
-                                        </a>
-                                        <button class="btn btn-sm btn-danger" onclick="confirmDelete('{{ entry.id }}', '{{ entry.date }}')">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
+                    <!-- Table View for Desktop -->
+                    <div class="d-none d-md-block">
+                        {% call components.table(headers=[
+                            'Date <i class="fas fa-sort text-muted ms-1 sort-icon" data-column="date"></i>'|safe,
+                            'Symptoms <i class="fas fa-sort text-muted ms-1 sort-icon" data-column="symptoms"></i>'|safe,
+                            'Flow/Details <i class="fas fa-sort text-muted ms-1 sort-icon" data-column="flow"></i>'|safe,
+                            'Notes <i class="fas fa-sort text-muted ms-1 sort-icon" data-column="notes"></i>'|safe,
+                            'Actions'
+                        ], id="entriesTable") %}
+                            {% for entry in entries %}
+                            <tr class="align-middle entry-row" 
+                                data-date="{{ entry.date }}" 
+                                data-symptoms="{% set symptom_names = [] %}{% for symptom in entry.symptoms %}{% if symptom_names.append(symptom.name|replace('_', ' ')|title) %}{% endif %}{% endfor %}{{ symptom_names|join(', ') }}"
+                                data-flow="{% set flows = [] %}{% for symptom in entry.symptoms %}{% if symptom.name == 'period' and symptom.flow_amount %}{% if flows.append(symptom.flow_amount|string) %}{% endif %}{% endif %}{% endfor %}{{ flows|join('') }}"
+                                data-notes="{{ entry.notes }}"
+                                data-entry-id="{{ entry.id }}">
+                                <td>
+                                    <strong>{{ entry.date | format_date }}</strong>
+                                </td>
+                                <td>
+                                    {% set symptom_names = [] %}
+                                    {% for symptom in entry.symptoms %}
+                                        {% if symptom_names.append(symptom.name|replace('_', ' ')|title) %}{% endif %}
+                                    {% endfor %}
+                                    <span class="badge bg-info">{{ symptom_names|join(', ') }}</span>
+                                </td>
+                                <td>
+                                    {% for symptom in entry.symptoms %}
+                                        {% if symptom.name == 'period' and symptom.flow_amount %}
+                                            <small><i class="fas fa-tint text-danger"></i> Flow: {{ symptom.flow_amount }}/10</small><br>
                                         {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                        
-                        <!-- Pagination Controls -->
-                        <div class="d-flex justify-content-between align-items-center mt-3">
-                            <small class="text-muted">
-                                Showing <strong id="startEntry">1</strong> to <strong id="endEntry">10</strong> of <strong id="totalEntries">{{ entries|length }}</strong> entries
-                            </small>
-                            <nav>
-                                <ul class="pagination pagination-sm mb-0">
-                                    <li class="page-item" id="prevBtn">
-                                        <a class="page-link" href="#" onclick="previousPage(); return false;">Previous</a>
-                                    </li>
-                                    <li class="page-item disabled" id="pageInfo">
-                                        <span class="page-link">Page <strong id="currentPage">1</strong> of <strong id="totalPages">1</strong></span>
-                                    </li>
-                                    <li class="page-item" id="nextBtn">
-                                        <a class="page-link" href="#" onclick="nextPage(); return false;">Next</a>
-                                    </li>
-                                </ul>
-                            </nav>
-                        </div>
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {{ entry.notes[:50] }}{% if entry.notes and entry.notes|length > 50 %}...{% endif %}
+                                </td>
+                                <td class="text-end pe-4">
+                                    <div class="table-action-buttons">
+                                        {{ components.btn(text="View", variant="info", class="btn-sm", icon="fas fa-eye", onclick="viewDetails('" ~ entry.id ~ "')") }}
+                                        {% if not is_view_only %}
+                                        {{ components.btn(text="Edit", variant="primary", class="btn-sm", icon="fas fa-edit", href="/input?entry_id=" ~ entry.id) }}
+                                        {{ components.btn(text="Delete", variant="danger", class="btn-sm", icon="fas fa-trash", onclick="confirmDelete('" ~ entry.id ~ "', '" ~ entry.date ~ "')") }}
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% endcall %}
                     </div>
                     
                     <!-- Card View for Mobile -->
@@ -153,31 +111,26 @@
                                 {% endif %}
                                 
                                 <div class="d-grid gap-2">
-                                    <button class="btn btn-sm btn-info" onclick="viewDetails('{{ entry.id }}')">
-                                        <i class="fas fa-eye"></i> View
-                                    </button>
+                                    {{ components.btn(text="View", variant="info", class="btn-sm", icon="fas fa-eye", onclick="viewDetails('" ~ entry.id ~ "')") }}
                                     {% if not is_view_only %}
-                                    <a href="/input?entry_id={{ entry.id }}" class="btn btn-sm btn-primary">
-                                        <i class="fas fa-edit"></i> Edit
-                                    </a>
-                                    <button class="btn btn-sm btn-danger" onclick="confirmDelete('{{ entry.id }}', '{{ entry.date }}')">
-                                        <i class="fas fa-trash"></i> Delete
-                                    </button>
+                                    {{ components.btn(text="Edit", variant="primary", class="btn-sm", icon="fas fa-edit", href="/input?entry_id=" ~ entry.id) }}
+                                    {{ components.btn(text="Delete", variant="danger", class="btn-sm", icon="fas fa-trash", onclick="confirmDelete('" ~ entry.id ~ "', '" ~ entry.date ~ "')") }}
                                     {% endif %}
                                 </div>
                             </div>
                         </div>
                         {% endfor %}
                     </div>
+
+                    <!-- Pagination Controls -->
+                    {{ components.pagination(current_page, total_pages, '/entries', total_count) }}
                 {% else %}
                     <div class="alert alert-info text-center" role="alert">
                         <i class="fas fa-inbox fa-2x mb-3" style="display: block;"></i>
                         <h5><strong>No Entries Yet</strong></h5>
                         <p class="mb-3">Start tracking your menstrual cycle to view your entries, analytics, and predictions.</p>
                         {% if not is_view_only %}
-                        <a href="/input" class="btn btn-primary">
-                            <i class="fas fa-plus"></i> Create Your First Entry
-                        </a>
+                        {{ components.btn(text="Create Your First Entry", variant="primary", href="/input", icon="fas fa-plus") }}
                         {% else %}
                         <p class="text-muted"><small>In view-only mode. Log in to add entries.</small></p>
                         {% endif %}
@@ -287,7 +240,7 @@ function viewDetails(entryId) {
     let symptomsHtml = '';
     if (entry.symptoms && entry.symptoms.length > 0) {
         entry.symptoms.forEach(function(symptom) {
-            let symptomHtml = '<div class="mb-3 p-3 border rounded" style="background-color: rgba(102, 126, 234, 0.05);">';
+            let symptomHtml = '<div class="mb-3 p-3 border rounded" style="background-color: rgba(159, 47, 85, 0.05);">';
             symptomHtml += '<div class="d-flex align-items-center mb-2">';
             symptomHtml += '<span class="me-2">' + getSymptomIcon(symptom.name) + '</span>';
             symptomHtml += '<strong>' + symptom.name.replace(/_/g, ' ').toUpperCase() + '</strong>';
@@ -349,47 +302,34 @@ function deleteEntry() {
     form.submit();
 }
 
-// Filter functionality
-document.addEventListener('DOMContentLoaded', function() {
-    const filterSelect = document.getElementById('entriesFilter');
-    const perPageSelect = document.getElementById('entriesPerPage');
-    const tableRows = document.querySelectorAll('table tbody tr');
-    const cardRows = document.querySelectorAll('.d-md-none .entry-card');
-    
-    // Initialize filter state on all rows
-    tableRows.forEach(row => {
-        row.setAttribute('data-filter-hidden', 'false');
-    });
-    
-    if (filterSelect) {
-        filterSelect.addEventListener('change', function() {
-            const filterType = this.value;
-            applyEntriesFilter(filterType, tableRows, cardRows);
-            currentPage = 1;
-            updatePagination();
-        });
-    }
-    
-    if (perPageSelect) {
-        perPageSelect.addEventListener('change', function() {
-            itemsPerPage = parseInt(this.value);
-            currentPage = 1;
-            updatePagination();
-        });
-    }
-    
-    // Initialize pagination
-    updatePagination();
-});
-
 // Sorting and Pagination Variables
-let currentPage = 1;
-let itemsPerPage = 10;
 let sortColumn = 'date';
 let sortDirection = 'desc';
 
+document.addEventListener('DOMContentLoaded', function() {
+    // Bind sort handlers to table headers
+    const table = document.getElementById('entriesTable');
+    if (!table) return;
+    
+    const headers = table.querySelectorAll('thead th');
+    const cols = ['date', 'symptoms', 'flow', 'notes'];
+    headers.forEach((th, idx) => {
+        if (idx < cols.length) {
+            th.style.cursor = 'pointer';
+            th.title = 'Click to sort';
+            th.addEventListener('click', () => sortTable(cols[idx]));
+        }
+    });
+});
+
 function sortTable(column) {
-    const rows = Array.from(document.querySelectorAll('#tableBody tr:not([style*="display: none"])'));
+    const table = document.getElementById('entriesTable');
+    if (!table) return;
+    
+    const tableBody = table.querySelector('tbody');
+    if (!tableBody) return;
+    
+    const rows = Array.from(tableBody.querySelectorAll('tr'));
     
     // Update sort direction if same column clicked
     if (sortColumn === column) {
@@ -401,158 +341,41 @@ function sortTable(column) {
     
     // Sort rows
     rows.sort((a, b) => {
-        let aValue, bValue;
+        let aValue = a.getAttribute(`data-${column}`) || '';
+        let bValue = b.getAttribute(`data-${column}`) || '';
         
-        switch(column) {
-            case 'date':
-                aValue = new Date(a.getAttribute('data-date'));
-                bValue = new Date(b.getAttribute('data-date'));
-                break;
-            case 'symptoms':
-                aValue = a.cells[1].textContent.trim();
-                bValue = b.cells[1].textContent.trim();
-                break;
-            case 'flow':
-                aValue = a.cells[2].textContent.trim();
-                bValue = b.cells[2].textContent.trim();
-                break;
-            case 'notes':
-                aValue = a.cells[3].textContent.trim();
-                bValue = b.cells[3].textContent.trim();
-                break;
-            default:
-                return 0;
+        if (column === 'date') {
+            aValue = new Date(aValue);
+            bValue = new Date(bValue);
+        } else if (column === 'flow') {
+            aValue = parseInt(aValue) || 0;
+            bValue = parseInt(bValue) || 0;
+        } else {
+            aValue = aValue.toLowerCase();
+            bValue = bValue.toLowerCase();
         }
         
-        if (typeof aValue === 'string') {
-            return sortDirection === 'asc' 
-                ? aValue.localeCompare(bValue)
-                : bValue.localeCompare(aValue);
+        if (sortDirection === 'asc') {
+            return aValue > bValue ? 1 : (aValue < bValue ? -1 : 0);
         } else {
-            return sortDirection === 'asc' 
-                ? aValue - bValue
-                : bValue - aValue;
+            return aValue < bValue ? 1 : (aValue > bValue ? -1 : 0);
         }
     });
     
     // Re-insert sorted rows
-    const tbody = document.getElementById('tableBody');
-    rows.forEach(row => tbody.appendChild(row));
+    rows.forEach(row => tableBody.appendChild(row));
     
-    // Update sort indicators
-    document.querySelectorAll('.sort-indicator').forEach(el => el.textContent = '');
-    const indicator = document.querySelector(`[data-column="${column}"]`);
-    if (indicator) {
-        indicator.textContent = sortDirection === 'asc' ? ' ▲' : ' ▼';
+    // Update sort icons
+    table.querySelectorAll('.sort-icon').forEach(icon => {
+        icon.className = 'fas fa-sort text-muted ms-1 sort-icon';
+    });
+    
+    const activeIcon = table.querySelector(`[data-column="${column}"]`);
+    if (activeIcon) {
+        activeIcon.className = sortDirection === 'asc' 
+            ? 'fas fa-caret-up text-primary ms-1 sort-icon' 
+            : 'fas fa-caret-down text-primary ms-1 sort-icon';
     }
-    
-    // Reset pagination
-    currentPage = 1;
-    updatePagination();
-}
-
-function updatePagination() {
-    const allRows = Array.from(document.querySelectorAll('#tableBody tr'));
-    // Get rows that are not filtered out (data-filter-hidden is not 'true')
-    const filterVisibleRows = allRows.filter(row => row.getAttribute('data-filter-hidden') !== 'true');
-    const totalPages = Math.ceil(filterVisibleRows.length / itemsPerPage) || 1;
-    const start = (currentPage - 1) * itemsPerPage;
-    const end = Math.min(start + itemsPerPage, filterVisibleRows.length);
-    
-    // Show/hide rows based on current page AND filter state
-    filterVisibleRows.forEach((row, index) => {
-        row.style.display = (index >= start && index < end) ? '' : 'none';
-    });
-    
-    // Hide rows that are filtered out
-    allRows.forEach(row => {
-        if (row.getAttribute('data-filter-hidden') === 'true') {
-            row.style.display = 'none';
-        }
-    });
-    
-    // Update pagination info
-    document.getElementById('currentPage').textContent = currentPage;
-    document.getElementById('totalPages').textContent = totalPages;
-    document.getElementById('startEntry').textContent = filterVisibleRows.length > 0 ? start + 1 : 0;
-    document.getElementById('endEntry').textContent = end;
-    document.getElementById('totalEntries').textContent = filterVisibleRows.length;
-    
-    // Update button states
-    document.getElementById('prevBtn').classList.toggle('disabled', currentPage === 1);
-    document.getElementById('nextBtn').classList.toggle('disabled', currentPage === totalPages);
-}
-
-function nextPage() {
-    const totalPages = parseInt(document.getElementById('totalPages').textContent);
-    if (currentPage < totalPages) {
-        currentPage++;
-        updatePagination();
-    }
-}
-
-function previousPage() {
-    if (currentPage > 1) {
-        currentPage--;
-        updatePagination();
-    }
-}
-
-function applyEntriesFilter(filterType, tableRows, cardRows) {
-    // Today's date for recent filter calculation
-    const today = new Date();
-    const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-    
-    // Filter table rows
-    tableRows.forEach(function(row) {
-        let show = true;
-        
-        if (filterType === 'period') {
-            const symptomsCell = row.querySelector('td:nth-child(2)');
-            show = symptomsCell && symptomsCell.textContent.toLowerCase().includes('period');
-        } else if (filterType === 'symptoms') {
-            const symptomsCell = row.querySelector('td:nth-child(2)');
-            show = symptomsCell && !symptomsCell.textContent.toLowerCase().includes('period');
-        } else if (filterType === 'recent') {
-            const dateCell = row.querySelector('td:first-child');
-            if (dateCell) {
-                const dateText = dateCell.textContent.trim();
-                const entryDate = new Date(dateText);
-                show = entryDate >= sevenDaysAgo && entryDate <= today;
-            }
-        } else if (filterType === 'notes') {
-            const notesCell = row.querySelector('td:nth-child(4)');
-            show = notesCell && notesCell.textContent.trim().length > 0;
-        }
-        
-        // Use data attribute to track filter state
-        row.setAttribute('data-filter-hidden', show ? 'false' : 'true');
-    });
-    
-    // Filter card rows
-    cardRows.forEach(function(card) {
-        let show = true;
-        
-        if (filterType === 'period') {
-            const symptomsText = card.textContent.toLowerCase();
-            show = symptomsText.includes('period');
-        } else if (filterType === 'symptoms') {
-            const symptomsText = card.textContent.toLowerCase();
-            show = !symptomsText.includes('period');
-        } else if (filterType === 'recent') {
-            const dateElement = card.querySelector('h6');
-            if (dateElement) {
-                const dateText = dateElement.textContent.trim();
-                const entryDate = new Date(dateText);
-                show = entryDate >= sevenDaysAgo && entryDate <= today;
-            }
-        } else if (filterType === 'notes') {
-            const notesText = card.textContent.toLowerCase();
-            show = notesText.includes('notes:') && !notesText.includes('notes:');
-        }
-        
-        card.style.display = show ? '' : 'none';
-    });
 }
 </script>
 
@@ -569,7 +392,7 @@ html[data-bs-theme="dark"] .table {
 }
 
 html[data-bs-theme="dark"] .table thead {
-    background-color: rgba(102, 126, 234, 0.2);
+    background-color: rgba(159, 47, 85, 0.2);
     border-bottom-color: var(--border-color);
 }
 
@@ -578,7 +401,7 @@ html[data-bs-theme="dark"] .table tbody tr {
 }
 
 html[data-bs-theme="dark"] .table tbody tr:hover {
-    background-color: rgba(102, 126, 234, 0.1);
+    background-color: rgba(159, 47, 85, 0.1);
 }
 
 html[data-bs-theme="dark"] .entry-card {
@@ -622,7 +445,7 @@ html[data-bs-theme="dark"] .modal-footer {
 }
 
 .table-primary th {
-    background-color: rgba(102, 126, 234, 0.15);
+    background-color: rgba(159, 47, 85, 0.15);
     color: var(--text-color);
 }
 
@@ -639,16 +462,16 @@ html[data-bs-theme="dark"] .modal-footer {
 
 #entriesTable thead th[onclick] {
     cursor: pointer;
-    background-color: rgba(102, 126, 234, 0.2);
+    background-color: rgba(159, 47, 85, 0.2);
     transition: background-color 0.2s ease;
 }
 
 #entriesTable thead th[onclick]:hover {
-    background-color: rgba(102, 126, 234, 0.35);
+    background-color: rgba(159, 47, 85, 0.35);
 }
 
 .sort-indicator {
-    color: #0dcaf0;
+    color: #c05621;
     font-size: 0.75rem;
     font-weight: bold;
 }
@@ -665,7 +488,7 @@ html[data-bs-theme="dark"] .modal-footer {
 }
 
 .pagination .page-link:hover:not(.disabled *) {
-    background-color: #0dcaf0;
+    background-color: #c05621;
     color: white;
 }
 
@@ -693,16 +516,16 @@ html[data-bs-theme="dark"] .modal-footer {
 
 /* Dark mode - Sortable headers */
 html[data-bs-theme="dark"] #entriesTable thead th[onclick] {
-    background-color: rgba(102, 126, 234, 0.3);
+    background-color: rgba(159, 47, 85, 0.3);
 }
 
 html[data-bs-theme="dark"] #entriesTable thead th[onclick]:hover {
-    background-color: rgba(102, 126, 234, 0.45);
+    background-color: rgba(159, 47, 85, 0.45);
 }
 
 html[data-bs-theme="dark"] #viewDetailsModal .border.rounded {
-    background-color: rgba(102, 126, 234, 0.1) !important;
-    border-color: rgba(102, 126, 234, 0.3) !important;
+    background-color: rgba(159, 47, 85, 0.1) !important;
+    border-color: rgba(159, 47, 85, 0.3) !important;
 }
 
 #detailSymptoms .badge {
@@ -716,3 +539,4 @@ html[data-bs-theme="dark"] #viewDetailsModal .border.rounded {
 }
 </style>
 {% endblock %}
+

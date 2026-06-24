@@ -1,40 +1,77 @@
 {% extends "base.html" %}
+{% import "macros.html" as components %}
 
 {% block title %}Settings - Femtrack{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-xl-8 col-lg-10 col-md-12">
-        <!-- Change Password --> 
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h4 class="mb-0"><i class="fas fa-key"></i> Change Password</h4>
+    <div class="col-xl-9 col-lg-10 col-md-12">
+        {% call components.card(title="Change Password", icon="fas fa-key", class="shadow", header_class="bg-primary text-white") %}
+            <p class="text-muted mb-4"><i class="fas fa-info-circle"></i> Update your personal login password.</p>
+            <form method="POST">
+                <input type="hidden" name="change_password" value="1">
+                {{ components.input_box(name="old_password", label="Current Password", type="password", required=True, id="old_password", icon="fas fa-lock") }}
+                {{ components.input_box(name="new_password", label="New Password", type="password", required=True, id="new_password", icon="fas fa-lock-open") }}
+                {{ components.input_box(name="confirm_password", label="Confirm New Password", type="password", required=True, id="confirm_password", icon="fas fa-check-circle") }}
+                <div class="d-grid gap-2">
+                    {{ components.btn(text="Change Password", type="submit", variant="primary", class="btn-lg", icon="fas fa-save") }}
+                </div>
+            </form>
+        {% endcall %}
+
+        {% call components.card(title="View-only Password", icon="fas fa-eye", class="shadow mt-4", header_class="bg-info text-white") %}
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="soft-panel h-100 p-3 rounded">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-unlock me-1"></i> Reveal Current Password</h6>
+                        <form method="POST" class="mb-3">
+                            <input type="hidden" name="verify_view_password" value="1">
+                            {{ components.input_box(name="view_password_check", label="Enter Current View-only Password", type="password", required=True, id="view_password_check", icon="fas fa-lock") }}
+                            {{ components.btn(text="Verify", type="submit", variant="primary", icon="fas fa-check") }}
+                        </form>
+                        {% if view_password_verified %}
+                        <label class="form-label fw-bold" for="visibleViewPassword">Current View-only Password</label>
+                        <div class="input-group mb-0">
+                            <input id="visibleViewPassword" class="form-control" type="text" value="{{ view_pass }}" readonly>
+                            <button class="btn btn-primary" type="button" onclick="copyViewPassword()"><i class="fas fa-copy"></i> Copy</button>
+                        </div>
+                        {% else %}
+                        <p class="text-muted small mb-0">The password is shown only after the current value is verified.</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="soft-panel h-100 p-3 rounded">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-rotate me-1"></i> Set New View-only Password</h6>
+                        <form method="POST">
+                            <input type="hidden" name="change_view_password" value="1">
+                            {{ components.input_box(name="new_view_password", label="New View-only Password", type="password", required=True, id="new_view_password", icon="fas fa-lock-open") }}
+                            {{ components.input_box(name="confirm_view_password", label="Confirm New View-only Password", type="password", required=True, id="confirm_view_password", icon="fas fa-check-circle") }}
+                            <div class="d-grid">
+                                {{ components.btn(text="Change View-only Password", type="submit", variant="primary", class="btn-lg", icon="fas fa-save") }}
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <p class="text-muted mb-4">
-                    <i class="fas fa-info-circle"></i> Update your personal login password.
-                </p>
-                <form method="POST">
-                    <input type="hidden" name="change_password" value="1">
-                    <div class="mb-3">
-                        <label for="old_password" class="form-label"><i class="fas fa-lock"></i> Current Password</label>
-                        <input type="password" class="form-control" id="old_password" name="old_password" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="new_password" class="form-label"><i class="fas fa-lock-open"></i> New Password</label>
-                        <input type="password" class="form-control" id="new_password" name="new_password" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="confirm_password" class="form-label"><i class="fas fa-check-circle"></i> Confirm New Password</label>
-                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
-                    </div>
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary btn-lg">Change Password</button>
-                        <a href="/" class="btn btn-secondary">Back to Home</a>
-                    </div>
-                </form>
-            </div>
-        </div>
+        {% endcall %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyViewPassword() {
+    const input = document.getElementById('visibleViewPassword');
+    if (!input) return;
+    navigator.clipboard.writeText(input.value).then(() => {
+        window.showFemtrackToast?.('View-only password copied');
+    }).catch(() => {
+        input.select();
+        document.execCommand('copy');
+        window.showFemtrackToast?.('View-only password copied');
+    });
+}
+</script>
 {% endblock %}

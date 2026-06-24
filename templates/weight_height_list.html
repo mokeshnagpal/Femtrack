@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% import "macros.html" as components %}
+
+{% block title %}Weight & Height Entries - Femtrack{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex flex-wrap justify-content-between align-items-center">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="fas fa-weight"></i> Weight & Height Tracking
+            </h2>
+            <p class="text-muted">Monitor and track your body metrics over time</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if not is_view_only %}
+            {{ components.btn(text="Add New Metrics", variant="primary", href="/weight-height/add", icon="fas fa-plus") }}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Table / Cards Section -->
+<div class="row">
+    <div class="col-12">
+        {% if not entries or entries|length == 0 %}
+        <div class="alert alert-info text-center py-5 shadow-sm" role="alert">
+            <i class="fas fa-weight-scale fa-3x mb-3 text-muted"></i>
+            <h5><strong>No Metric Records Found</strong></h5>
+            <p class="mb-3">You haven't recorded your weight or height yet.</p>
+            {% if not is_view_only %}
+            {{ components.btn(text="Add First Entry", variant="primary", class="btn-sm", href="/weight-height/add") }}
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="card shadow">
+            <div class="card-body p-0">
+                {% call components.table(headers=[
+                    'Date <i class="fas fa-sort text-muted ms-1 sort-icon" data-column="date"></i>'|safe,
+                    'Weight (kg) <i class="fas fa-sort text-muted ms-1 sort-icon" data-column="weight"></i>'|safe,
+                    'Height (cm) <i class="fas fa-sort text-muted ms-1 sort-icon" data-column="height"></i>'|safe,
+                    'BMI <i class="fas fa-sort text-muted ms-1 sort-icon" data-column="bmi"></i>'|safe,
+                    'Category <i class="fas fa-sort text-muted ms-1 sort-icon" data-column="category"></i>'|safe,
+                    'Actions'
+                ], id="metricsTable") %}
+                            {% for entry in entries %}
+                            <tr class="align-middle metric-row"
+                                data-date="{{ entry.date }}"
+                                data-weight="{{ entry.weight }}"
+                                data-height="{{ entry.height }}"
+                                data-bmi="{{ entry.bmi }}"
+                                data-category="{{ entry.bmi_category }}">
+                                <td class="ps-4 fw-bold">{{ entry.date | format_date }}</td>
+                                <td>{{ entry.weight }} kg</td>
+                                <td>{{ entry.height }} cm</td>
+                                <td>{{ entry.bmi }}</td>
+                                <td>
+                                    {% if entry.bmi_category == 'Underweight' %}
+                                    <span class="badge bg-warning text-dark">{{ entry.bmi_category }}</span>
+                                    {% elif entry.bmi_category == 'Normal' %}
+                                    <span class="badge bg-success">{{ entry.bmi_category }}</span>
+                                    {% elif entry.bmi_category == 'Overweight' %}
+                                    <span class="badge bg-warning text-dark">{{ entry.bmi_category }}</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">{{ entry.bmi_category }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end pe-4">
+                                    <div class="table-action-buttons">
+                                        {% if not is_view_only %}
+                                        {{ components.btn(text="Edit", variant="primary", outline=True, class="btn-sm", icon="fas fa-edit", href="/weight-height/edit/" ~ entry.id, title="Edit Entry") }}
+                                        <form method="POST" action="/weight-height/delete/{{ entry.id }}" onsubmit="return confirm('Are you sure you want to delete this record?');">
+                                            {{ components.btn(text="Delete", type="submit", variant="danger", outline=True, class="btn-sm", icon="fas fa-trash-alt", title="Delete Entry") }}
+                                        </form>
+                                        {% else %}
+                                        <span class="text-muted small">Read-only</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                {% endcall %}
+                
+                <!-- Pagination Controls -->
+                <div class="px-4 pb-3">
+                    {{ components.pagination(current_page, total_pages, '/weight-height', total_count) }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let sortColumn = 'date';
+let sortDirection = 'desc';
+
+document.addEventListener('DOMContentLoaded', function() {
+    const table = document.getElementById('metricsTable');
+    if (!table) return;
+    
+    const headers = table.querySelectorAll('thead th');
+    const cols = ['date', 'weight', 'height', 'bmi', 'category'];
+    
+    headers.forEach((th, idx) => {
+        if (idx < cols.length) {
+            th.style.cursor = 'pointer';
+            th.title = 'Click to sort';
+            th.addEventListener('click', () => sortTable(cols[idx]));
+        }
+    });
+});
+
+function sortTable(column) {
+    const table = document.getElementById('metricsTable');
+    if (!table) return;
+    
+    const tableBody = table.querySelector('tbody');
+    if (!tableBody) return;
+    
+    const rows = Array.from(tableBody.querySelectorAll('tr'));
+    
+    if (sortColumn === column) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortColumn = column;
+        sortDirection = 'desc';
+    }
+    
+    rows.sort((a, b) => {
+        let aValue = a.getAttribute(`data-${column}`) || '';
+        let bValue = b.getAttribute(`data-${column}`) || '';
+        
+        if (column === 'date') {
+            aValue = new Date(aValue);
+            bValue = new Date(bValue);
+        } else if (['weight', 'height', 'bmi'].includes(column)) {
+            aValue = parseFloat(aValue) || 0;
+            bValue = parseFloat(bValue) || 0;
+        } else {
+            aValue = aValue.toLowerCase();
+            bValue = bValue.toLowerCase();
+        }
+        
+        if (sortDirection === 'asc') {
+            return aValue > bValue ? 1 : (aValue < bValue ? -1 : 0);
+        } else {
+            return aValue < bValue ? 1 : (aValue > bValue ? -1 : 0);
+        }
+    });
+    
+    rows.forEach(row => tableBody.appendChild(row));
+    
+    table.querySelectorAll('.sort-icon').forEach(icon => {
+        icon.className = 'fas fa-sort text-muted ms-1 sort-icon';
+    });
+    
+    const activeIcon = table.querySelector(`[data-column="${column}"]`);
+    if (activeIcon) {
+        activeIcon.className = sortDirection === 'asc' 
+            ? 'fas fa-caret-up text-primary ms-1 sort-icon' 
+            : 'fas fa-caret-down text-primary ms-1 sort-icon';
+    }
+}
+</script>
+{% endblock %}
+
