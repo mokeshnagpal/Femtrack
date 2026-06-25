@@ -59,41 +59,54 @@ def calculate_cycle_data(entries):
     next_fertile_window = None
     
     if period_dates:
-        last_period = period_dates[-1]
-        days_since_last_period = (today - last_period).days
+        # Group period_dates into contiguous period blocks (gap <= 2 days)
+        periods = []
+        curr_period = [period_dates[0]]
+        for d in period_dates[1:]:
+            if (d - curr_period[-1]).days <= 2:
+                curr_period.append(d)
+            else:
+                periods.append(curr_period)
+                curr_period = [d]
+        periods.append(curr_period)
+        
+        # The latest period starts on the first day of the last block
+        latest_period = periods[-1]
+        cycle_start = latest_period[0]
+        days_in_cycle = (today - cycle_start).days
         
         # Check if we're in ongoing cycle
-        if days_since_last_period < average_cycle_length:
+        if days_in_cycle < average_cycle_length:
             current_cycle = {
-                'start_date': last_period.isoformat(),
-                'start_date_str': format_date_readable(last_period),
-                'days_in_cycle': days_since_last_period,
-                'predicted_end': (last_period + timedelta(days=average_cycle_length)).isoformat(),
-                'is_fertile': is_in_fertile_window(days_since_last_period, average_cycle_length),
-                'cycle_percentage': (days_since_last_period / average_cycle_length) * 100,
+                'start_date': cycle_start.isoformat(),
+                'start_date_str': format_date_readable(cycle_start),
+                'days_in_cycle': days_in_cycle,
+                'predicted_end': (cycle_start + timedelta(days=average_cycle_length)).isoformat(),
+                'is_fertile': is_in_fertile_window(days_in_cycle, average_cycle_length),
+                'cycle_percentage': (days_in_cycle / average_cycle_length) * 100,
                 'is_current': True
             }
             
-            next_start = last_period + timedelta(days=average_cycle_length)
+            next_start = cycle_start + timedelta(days=average_cycle_length)
             next_cycle = {
                 'start_date': next_start.isoformat(),
                 'predicted': True,
                 'is_current': False
             }
             
-            current_fertile_window = calculate_fertile_window(last_period, average_cycle_length)
+            current_fertile_window = calculate_fertile_window(cycle_start, average_cycle_length)
             next_fertile_window = calculate_fertile_window(next_start, average_cycle_length)
         else:
             current_cycle = {
-                'start_date': last_period.isoformat(),
-                'start_date_str': format_date_readable(last_period),
+                'start_date': cycle_start.isoformat(),
+                'start_date_str': format_date_readable(cycle_start),
                 'days_in_cycle': average_cycle_length,
-                'predicted_end': (last_period + timedelta(days=average_cycle_length)).isoformat(),
+                'predicted_end': (cycle_start + timedelta(days=average_cycle_length)).isoformat(),
                 'is_complete': True,
                 'is_current': False
             }
             
-            next_start = last_period + timedelta(days=average_cycle_length)
+            next_start = cycle_start + timedelta(days=average_cycle_length)
             days_until_next = (next_start - today).days
             next_cycle = {
                 'start_date': next_start.isoformat(),
@@ -103,7 +116,7 @@ def calculate_cycle_data(entries):
                 'is_current': False
             }
             
-            current_fertile_window = calculate_fertile_window(last_period, average_cycle_length)
+            current_fertile_window = calculate_fertile_window(cycle_start, average_cycle_length)
             next_fertile_window = calculate_fertile_window(next_start, average_cycle_length)
         
         # Build previous cycles
@@ -121,8 +134,12 @@ def calculate_cycle_data(entries):
             previous_cycles.append(prev_cycle)
         
         previous_cycles.reverse()
-    
-    timeline = build_timeline(last_period if period_dates else today, average_cycle_length, today)
+        
+        timeline = build_timeline(cycle_start, average_cycle_length, today)
+        last_period_date = period_dates[-1]
+    else:
+        timeline = build_timeline(today, average_cycle_length, today)
+        last_period_date = None
     
     return {
         'average_cycle_length': average_cycle_length,
@@ -134,7 +151,10 @@ def calculate_cycle_data(entries):
         'next_fertile_window': next_fertile_window,
         'fertile_window': current_fertile_window,
         'timeline': timeline,
-        'last_period': last_period.isoformat() if period_dates else None
+        'last_period': last_period_date.isoformat() if last_period_date else None,
+        'periods': periods,
+        'cycle_lengths': cycle_lengths,
+        'period_dates': period_dates
     }
 
 def is_in_fertile_window(days_in_cycle, cycle_length):
@@ -220,54 +240,12 @@ def calculate_fertility_analytics(entries):
     print(f"[{datetime.now().isoformat()}] INFO: Running calculate_fertility_analytics with {len(entries)} entries")
     cycle_data = calculate_cycle_data(entries)
     
-    # Extract period dates to compute period length
-    period_dates = []
-    for entry in entries:
-        if 'symptoms' in entry:
-            for symptom in entry['symptoms']:
-                if isinstance(symptom, dict) and symptom.get('name') == 'period':
-                    date_str = entry.get('date')
-                    if date_str:
-                        try:
-                            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
-                            period_dates.append(date_obj)
-                        except ValueError:
-                            pass
-                            
-    period_dates.sort()
-    periods = []
-    if period_dates:
-        curr_period = [period_dates[0]]
-        for d in period_dates[1:]:
-            if (d - curr_period[-1]).days <= 2:
-                curr_period.append(d)
-            else:
-                periods.append(curr_period)
-                curr_period = [d]
-        periods.append(curr_period)
-        
+    periods = cycle_data.get('periods') or []
+    cycle_lengths = cycle_data.get('cycle_lengths') or []
+    period_dates = cycle_data.get('period_dates') or []
+
     period_lengths = [len(p) for p in periods]
     average_period_length = int(sum(period_lengths) / len(period_lengths)) if period_lengths else 5
-
-    # Extract cycle lengths
-    period_starts = []
-    for entry in entries:
-        if 'symptoms' in entry:
-            for symptom in entry['symptoms']:
-                if isinstance(symptom, dict) and symptom.get('name') == 'period' and symptom.get('start_marked'):
-                    date_str = entry.get('date')
-                    if date_str:
-                        try:
-                            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
-                            period_starts.append(date_obj)
-                        except ValueError:
-                            pass
-    period_starts.sort()
-    cycle_lengths = []
-    for i in range(1, len(period_starts)):
-        cycle_length = (period_starts[i] - period_starts[i-1]).days
-        if 15 < cycle_length < 50:
-            cycle_lengths.append(cycle_length)
             
     # Regularity Score
     if len(cycle_lengths) >= 2:
@@ -328,8 +306,8 @@ def calculate_fertility_analytics(entries):
     predicted_ovulation_date_str = 'None'
     predicted_next_period_str = 'None'
     if period_dates:
-        last_period = period_dates[-1]
-        next_start_date = last_period + timedelta(days=average_cycle_length)
+        cycle_start = periods[-1][0] if periods else period_dates[0]
+        next_start_date = cycle_start + timedelta(days=average_cycle_length)
         predicted_ovulation = next_start_date - timedelta(days=14)
         predicted_ovulation_date_str = format_date_readable(predicted_ovulation)
         predicted_next_period_str = format_date_readable(next_start_date)

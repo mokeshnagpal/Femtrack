@@ -687,15 +687,15 @@ def analytics():
         flash(f'Error loading analytics: {str(e)}')
         return redirect('/')
 
-@app.route('/predictor')
+@app.route('/forecast')
 @auth_required
-def predictor():
+def forecast():
     """Cycle predictor and fertility tracker"""
 
     is_view_only = session.get('view_only', False)
     user_email = session.get('user') or session.get('view_only_email', '')
     cycle_history_filter = get_cycle_history_limit_options()
-    print(f"[{datetime.now().isoformat()}] INFO: User {user_email} (view_only={is_view_only}) requested predictor dashboard. Cycle limit filter: {cycle_history_filter['cycle_limit']}")
+    print(f"[{datetime.now().isoformat()}] INFO: User {user_email} (view_only={is_view_only}) requested forecast dashboard. Cycle limit filter: {cycle_history_filter['cycle_limit']}")
     try:
         # Fetch all entries for the user
         entries = get_period_entries(user_email)
@@ -717,10 +717,10 @@ def predictor():
         else:
             cycle_data['predicted_vs_actual_note'] = 'Add more period starts to compare predicted dates with actual tracked starts.'
 
-        return render_template('predictor.html', cycle_data=cycle_data, cycle_history_rows=cycle_history_rows, cycle_history_filter=cycle_history_filter, is_view_only=is_view_only)
+        return render_template('forecast.html', cycle_data=cycle_data, cycle_history_rows=cycle_history_rows, cycle_history_filter=cycle_history_filter, is_view_only=is_view_only)
     except Exception as e:
-        print(f"Error loading predictor: {e}")
-        flash(f'Error loading predictor: {str(e)}')
+        print(f"Error loading forecast: {e}")
+        flash(f'Error loading forecast: {str(e)}')
         return redirect('/')
 
 @app.route('/weight-height')

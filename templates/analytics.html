@@ -328,6 +328,46 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!hasTypeChart && !hasPositionChart) {
         showChartMessage('sexCharts', 'No sex-entry chart data yet.');
     }
+
+    function updateChartTheme() {
+        const textCol = (getComputedStyle(document.documentElement).getPropertyValue('--text-color') || '#2c3e50').trim();
+        const gridCol = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim() || '#e0e0e0';
+
+        Chart.defaults.color = textCol;
+
+        const updateInstance = (chartInstance) => {
+            if (!chartInstance) return;
+            
+            if (chartInstance.options.plugins && chartInstance.options.plugins.legend) {
+                chartInstance.options.plugins.legend.labels.color = textCol;
+            }
+            
+            if (chartInstance.options.scales) {
+                Object.values(chartInstance.options.scales).forEach(scale => {
+                    if (scale.ticks) scale.ticks.color = textCol;
+                    if (scale.grid) scale.grid.color = gridCol;
+                    if (scale.title) scale.title.color = textCol;
+                });
+            }
+            
+            if (chartInstance.options.plugins && chartInstance.options.plugins.title) {
+                chartInstance.options.plugins.title.color = textCol;
+            }
+
+            chartInstance.update();
+        };
+
+        Object.values(Chart.instances).forEach(updateInstance);
+    }
+
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.attributeName === 'data-bs-theme') {
+                updateChartTheme();
+            }
+        });
+    });
+    observer.observe(document.documentElement, { attributes: true });
 });
 </script>
 {% endblock %}

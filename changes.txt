@@ -46,7 +46,7 @@ Perform responsive layout tests (using mobile-width viewports e.g. 375px and des
 9. **Weight & Height List (`/weight-height`)**
 10. **Add/Edit Weight & Height (`/weight-height/add` / `/weight-height/edit/<id>`)**
 11. **Unified Health Analytics (`/analytics`)**
-12. **Forecast (`/predictor`)**
+12. **Forecast (`/forecast`)**
 13. **Customization Page (`/customize`)**
 14. **Settings (`/settings`)**
 

@@ -1,81 +1,95 @@
 # FemTrack — Personal Reproductive Health Platform
 
-FemTrack is a private Flask web application for menstrual cycle tracking, fertility forecasting, body metrics, sexual activity logs, and shareable read-only analytics. Data is stored in Google Cloud Firestore. The interface supports light and dark themes, responsive layouts, and a unified toast notification system for feedback and errors.
+FemTrack is a private, secure web application designed for menstrual cycle tracking, cycle phase forecasting, intimacy and sexual activity logging, biometric analytics, and shareable read-only dashboard access. All data is securely persisted in Google Cloud Firestore. The platform features responsive layouts, light/dark mode theme support with automatic chart updates, and a toast-based notification system.
 
 ---
 
-## Quick Start
+## Setup & Quick Start
 
-### Prerequisites
+Follow these steps to configure, install, and run FemTrack on your local machine.
 
-- Python 3.10+
-- A Firebase / Google Cloud project with Firestore enabled
-- Service account credentials (JSON) for Firestore access
+### 1. Prerequisites
 
-### Installation
+Before running the application, make sure you have:
+* **Python 3.10+** installed on your system.
+* **Google Firebase Project**: Set up a Firebase project and enable the Firestore database in Native mode.
+* **Firebase service account credentials**: Generate a private key JSON file from the Firebase console (Project Settings > Service Accounts).
+
+### 2. Installation
+
+Clone the repository and prepare the virtual environment:
 
 ```bash
 git clone <repository-url>
 cd Femtrack
+
+# Create a virtual environment
 python -m venv venv
 
-# Windows
-venv\Scripts\activate
-
+# Activate the virtual environment
+# Windows (PowerShell)
+.\venv\Scripts\Activate.ps1
+# Windows (CMD)
+.\venv\Scripts\activate.bat
 # macOS / Linux
 source venv/bin/activate
 
+# Install required dependencies
 pip install -r requirements.txt
 ```
 
-### Environment configuration
+### 3. Environment Configuration
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root directory and add the following keys:
 
 ```env
 SECRET_KEY=your_flask_secret_key
-FIREBASE_CREDENTIALS={"type":"service_account",...}
-ADMIN_USER=you@example.com,partner@example.com
-DEFAULT_PASS=your_first_login_password
-VIEW_PASS=shared_analytics_password
-EMAIL_USER=optional_smtp_user
-EMAIL_PASSWORD=optional_smtp_password
+FIREBASE_CREDENTIALS={"type":"service_account","project_id":"your-project-id",...}
+ADMIN_USER=your_admin_email@gmail.com
+DEFAULT_PASS=your_first_time_password
+VIEW_PASS=default_view_only_password
+EMAIL_USER=your_smtp_email@gmail.com
+EMAIL_PASSWORD=your_smtp_app_password
 ```
 
+#### Environment Variables Reference
 
-| Variable                        | Purpose                                                                 |
-| ------------------------------- | ----------------------------------------------------------------------- |
-| `SECRET_KEY`                    | Flask session signing key                                               |
-| `FIREBASE_CREDENTIALS`          | Full Firebase service account JSON as a single-line string              |
-| `ADMIN_USER`                    | Comma-separated emails allowed to log in                                |
-| `DEFAULT_PASS`                  | Password used on first login before the account is created in Firestore |
-| `VIEW_PASS`                     | Default view-only analytics password (can be changed in Settings)       |
-| `EMAIL_USER` / `EMAIL_PASSWORD` | SMTP credentials for OTP password reset emails (optional)               |
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `SECRET_KEY` | Yes | Secret key used by Flask to secure and sign session cookies. |
+| `FIREBASE_CREDENTIALS` | Yes | The complete Firebase Service Account JSON credentials object compressed into a single-line string. |
+| `ADMIN_USER` | Yes | A comma-separated list of emails authorized to register and sign in as administrators. |
+| `DEFAULT_PASS` | Yes | Temporary password used during first-time login for an admin email before their profile is created in Firestore. |
+| `VIEW_PASS` | No | Default view-only shared access password. Can be changed later via the Settings page. |
+| `EMAIL_USER` / `EMAIL_PASSWORD` | No | SMTP credentials used for sending OTP codes for password recovery. |
 
+### 4. Running the Application Locally
 
-### Run locally
+Start the Flask development server:
 
 ```bash
 python app.py
 ```
 
-Open `http://127.0.0.1:5000` in your browser. Use an email listed in `ADMIN_USER` and `DEFAULT_PASS` on first login, then change your password in Settings.
+* The app will spin up at `http://127.0.0.1:5000`.
+* **First Login**: Use an email address defined in `ADMIN_USER` and the `DEFAULT_PASS` from your `.env` file. Upon first login, the application will initialize your document database.
+* **Security Action**: Immediately navigate to the **Settings** page (`/settings`) to update your temporary password to a secure personal password.
 
-### Production
+### 5. Production Deployment
 
-The app includes `gunicorn` in `requirements.txt`. Example:
+The application lists `gunicorn` in its dependencies for production environments. To start the Gunicorn WSGI server:
 
 ```bash
 gunicorn -w 2 -b 0.0.0.0:8000 app:app
 ```
 
-Set the same environment variables on your host (e.g. Render, Railway, VPS).
+Ensure all environment variables defined in your `.env` are configured in your production host environment (e.g. Render, Railway, Heroku).
 
 ---
 
-## Architecture
+## System Architecture
 
-FemTrack uses a thin routing layer in `app.py` and delegates business logic to modules under `utils/`.
+FemTrack is built with a decoupled architecture, separating routing logic from core computation.
 
 ```
 Browser (Bootstrap 5 + Chart.js)
@@ -84,378 +98,188 @@ Browser (Bootstrap 5 + Chart.js)
    app.py  ── routes, sessions, flash → toast
         │
         ├── utils/firestore_service.py   Firestore CRUD
-        ├── utils/auth.py                Password hashing
-        ├── utils/auth_decorators.py     @login_required, @auth_required, API guards
-        ├── utils/biometrics.py          BMI and body-metric trends
-        ├── utils/fertility.py           Cycle prediction and fertility scoring
-        ├── utils/date_helpers.py        Date parsing, sorting, chart formatting
-        ├── utils/email_service.py       OTP email delivery
-        └── utils/otp.py                 OTP generation and validation
+        ├── utils/auth.py                Password hashing (bcrypt)
+        ├── utils/auth_decorators.py     Login requirements & API access guards
+        ├── utils/biometrics.py          BMI and biometric metrics stability
+        ├── utils/fertility.py           Cycle predictions and fertility scoring
+        ├── utils/date_helpers.py        Date sorting, local conversions, charts formatting
+        ├── utils/email_service.py       SMTP mail forwarding
+        └── utils/otp.py                 One-time password lifecycle
         │
         ▼
    Google Cloud Firestore
 ```
 
-### Frontend layout
+### Core Architectural Features
 
-- `**templates/base.html**` — Navbar, theme toggle, footer, toast stack, custom dropdown sync
-- `**templates/macros.html**` — Reusable Jinja2 components (cards, buttons, tables, forms)
-- `**static/css/styles.css**` — Theme variables, responsive nav drawer, toasts, metric panels
-- `**static/js/error-handler.js**` — Validation helpers that route errors to toasts
-
-### Sessions
-
-Sessions are permanent with a 10-year lifetime and refresh on each request, so users stay signed in until they log out explicitly.
-
-### Notifications
-
-All server `flash()` messages and client-side validation errors appear as **top-right toasts** (auto-dismiss after 4 seconds). Types: `success`, `danger`, `warning`, `info`. Helpers: `showFemtrackToast(message, type)` and `showFemtrackErrors([...])`.
+* **Timezone-Safe Formatting**: Front-end dates are calculated and parsed using local browser timezones via a helper function `toLocalIsoDate(date)` rather than UTC-based `.toISOString()`. This prevents 1-day offsets that typically occur in timezones ahead of UTC (such as IST, +5:30).
+* **Live Chart Mode Sync**: An HTML element `MutationObserver` monitors changes to the `data-bs-theme` attribute (Light/Dark mode). On theme toggle, it queries updated CSS variables (`--text-color` and `--border-color`), overrides standard Chart.js defaults, and instantly redraws all charts to maintain readability and high contrast.
+* **Persistent Sessions**: Sessions are permanent with a 10-year lifetime. They refresh with each request, keeping users logged in on their private devices.
+* **Toasts Notification Queue**: Validation issues, system errors, and success updates are broadcast to the user via a top-right toast stack. Client-side form handlers validate forms locally before submission to reduce server round-trips.
 
 ---
 
-## Project structure
+## Project Directory Map
 
 ```
 Femtrack/
-├── app.py                 Main Flask application and routes
-├── config.py              Firebase init and environment config
-├── requirements.txt
-├── templates/             Jinja2 pages and macros
-├── static/
-│   ├── css/styles.css
-│   ├── js/error-handler.js
-│   ├── data/home_messages.txt
-│   ├── icons/             Symptom SVG icons
-│   └── images/            Home carousel assets
-└── utils/                 Backend services
+├── app.py                 Main web app entry point, defines page routing and API routes
+├── config.py              Firestore client initialization and environment validation
+├── requirements.txt       List of Python packages required
+├── templates/             Jinja2 HTML templates
+│   ├── base.html          Global navbar, mobile nav drawer, theme toggles, and toast container
+│   ├── macros.html        Reusable components (buttons, stat cards, glassmorphic panels, forms)
+│   ├── forecast.html      Timeline visualizations, forecast graphs, and cycle calendars
+│   ├── analytics.html     Historical charts (symptoms, weight, intimacy distributions)
+│   └── ...                Input and log forms
+├── static/                Static files
+│   ├── css/styles.css     Global styles, custom UI variables, and responsive classes
+│   ├── js/error-handler.js Form interceptors and error alert triggers
+│   ├── data/              Motivational daily note files
+│   ├── icons/             Symptom SVG vector icons
+│   └── images/            Hero carousel assets
+└── utils/                 Decoupled utility modules
 ```
 
 ---
 
-## Features by page
+## User Manual: How to Use Each Feature
 
-### Authentication
+### 1. Daily Menses & Symptom Tracking
+Record menses flows, check symptoms, and write logs.
 
+* **Viewing Your Menses Logs**: Navigate to **Menses** (`/entries`). Desktop views show a paginated table (12 entries per page) with search filters and column sorting. On mobile screens, the page automatically switches to a list of premium card panels.
+* **Adding a Daily Entry**:
+  1. Click **Add Period Entry** (or go to `/input`).
+  2. Select the Date (defaults to today).
+  3. **Cycle Start**: Check the **Start of Cycle (First day of period)** box if this is the first day of a new period. This flag triggers the cycle length calculations and starts a new cycle in the database.
+  4. **Period Ended**: Check **Period Ended** if your bleeding has stopped to close the active flow window.
+  5. **Flow Amount**: Use the slider (1 to 10) to log bleeding volume.
+  6. **Symptoms**: Check off any symptoms you experienced: `Period`, `Craving`, `Irritation`, `Diarrhea`, or `Feeling Weird`. If you check a symptom, select its intensity (`Low`, `Medium`, or `High`).
+  7. **Notes**: Add optional private notes.
+  8. Click **Save Entry**.
+* **Editing/Deleting**: Click the pencil icon or the trash icon next to an entry on the logs list to modify or delete it.
 
-| Route              | Page             | Description                                      |
-| ------------------ | ---------------- | ------------------------------------------------ |
-| `/login`           | Login            | Email + password for authorized admin users      |
-| `/forgot-password` | Forgot password  | Sends OTP to registered email                    |
-| `/verify-otp`      | OTP verification | Validates OTP (debug OTP shown when email fails) |
-| `/reset-password`  | Reset password   | Sets new password after OTP                      |
-| `/logout`          | —                | Clears session                                   |
+### 2. Intimacy & Sexual Activity Logs
+Keep a record of your sexual activity, positions, and logs.
 
+* **Viewing Intimacy Logs**: Navigate to **Sex Entries** (`/sex-entries`). Review past dates, intimacy types, and positions. On mobile devices, this view renders as an ordered card list.
+* **Adding an Entry**:
+  1. Navigate to `/sex-entries/add` (or click **Add Entry** from the intimacy list).
+  2. Choose the Date, **Intimacy Type** (e.g. Soft, Hard - Protected, Hard - Pullout, Hard - Natural), and the **Position** used (e.g. Missionary, Doggy, Cowgirl, Side, Standing).
+  3. Add notes if desired and click **Save**.
+* **Managing Custom Options**: Customize your types and positions on the **Customize** page.
 
-Errors (invalid password, unauthorized email, OTP failure) are shown via toast after redirect.
+### 3. Biometrics & Body Metrics
+Track your weight, height, and body mass index over time.
 
-### Home (`/`)
+* **Viewing Metrics**: Navigate to **Weight & Height** (`/weight-height`). The page lists weight logs, height entries, computed BMI metrics, and classification badges (e.g., Normal, Overweight).
+* **Adding a Biometric Log**:
+  1. Click **Add Metric** (or navigate to `/weight-height/add`).
+  2. Input your weight in kilograms (kg) and height in centimeters (cm).
+  3. **Live Preview**: The form computes your BMI and displays its category card in real-time.
+  4. **Autofill Helper**: Check the **Use Previous Recorded Values** box to pre-fill the form fields with your last recorded metrics.
+  5. Click **Save**. Duplicate dates are rejected to keep metrics clean.
 
-- Personalized greeting using the user’s display name
-- **Today’s note** — random motivational message from `static/data/home_messages.txt` (120 messages)
-- Image carousel introducing tracking features
-- View-only mode shows the shared user email instead of edit actions
+### 4. Cycle Forecasting & Forecast Dashboard
+Review your cycle timeline, predictions, and safety forecasts.
 
-### Menses log
+* **Baseline Overview Cards**:
+  - **Current Phase Window**: Shows your active phase (e.g. Period/Menstruation), its active date range, and the average period length. Also displays the calculated percentage probability of today falling into this phase.
+  - **Next Phase Window**: Forecasts the next chronological phase (e.g. transitioning from Period to Building/Follicular), predicted date ranges, and average phase duration.
+  - **Typical Cycle**: Summarizes average cycle duration, regularity, and overall prediction confidence.
+* **Selected Phase Focus**:
+  - Select a phase (Period, Building, Fertile, or Luteal) from the **Cycle Phase Focus** dropdown.
+  - The **Phase Forecast Graph** updates to plot your statistical probability curve for that specific phase.
+  - The calendar grids (Previous, Current, and Upcoming cycles) adjust their colors to highlight when you are predicted to enter that phase.
+* **Calendar Day Tooltips**:
+  - Hover over a calendar cell to see details: date, days in cycle, predicted phase, pregnancy risk, and safety rating.
+  - If intimacy is logged on that day, a heart icon is displayed. Hover over the day, move your cursor onto the popup window, and click **View Details** to open the Intimacy Modal.
+* **Intimacy Details Modal**:
+  - A split-pane view displaying logged intimacy parameters on the left and computed cycle context metrics (Phase, Period Probability, and Pregnancy Likelihood) for that date on the right.
 
+### 5. Analytics Dashboard
+Analyze patterns across months and years.
 
-| Route                | Page             | Description                                                          |
-| -------------------- | ---------------- | -------------------------------------------------------------------- |
-| `/entries`           | Entry list       | Paginated table (12 rows/page), sortable columns, mobile card layout |
-| `/input`             | Add / edit entry | Daily symptom and flow logging                                       |
-| `/delete-entry/<id>` | —                | POST delete (logged-in users only)                                   |
+* **Telemetries**: Navigate to **Analytics** (`/analytics`). Review charts for period flows, symptom distributions, intimacy preferences, and weight/BMI trends.
+* **Data Filters**: Use the top menu bar to group data by Daily, Weekly, Monthly, or Yearly windows, and limit the history length to filter charts dynamically.
 
+### 6. Customization
+Tailor the application to your logging habits.
 
-**Daily entry form (`/input`):**
+* Navigate to **Customize** (`/customize`).
+* **Custom Symptoms**: Add new symptoms (e.g., "Headache" or "Cramps") to your checklist, or delete ones you do not wish to track. Pre-defined core symptoms cannot be deleted.
+* **Custom Intimacy**: Add new intimacy categories or positions.
+* **Pre-fill Defaults**: Set default values (e.g. default flow amount, pre-checked symptoms, default position) that load automatically when creating new entries.
 
-- Date picker (defaults to today for new entries)
-- Period tracking: flow amount (1–10), period start marker, start/end times, “period ended” mode
-- Symptoms: Period, Craving, Irritation, Diarrhea, Feeling Weird (with intensity where applicable)
-- Optional notes
-- Client validation via toast (intensity required when symptom checked; at least one symptom required)
-- User defaults from Customize pre-fill new entries
+### 7. Partner & Shared Access (View-Only Mode)
+Safely share your cycle forecasts and logs with your partner or doctor.
 
-### Sex entries
-
-
-| Route                      | Page | Description                                      |
-| -------------------------- | ---- | ------------------------------------------------ |
-| `/sex-entries`             | List | Paginated table (11 rows/page), sortable columns |
-| `/sex-entries/add`         | Add  | Date, sex type, position, notes                  |
-| `/sex-entries/edit/<id>`   | Edit | Same fields as add                               |
-| `/sex-entries/delete/<id>` | —    | POST delete                                      |
-
-
-Default sex types: Soft, Hard (Protected), Hard (Pullout), Hard (Natural). Default positions: Missionary, Cowgirl, Doggy, Side, Standing. Custom types and positions are managed under Customize.
-
-### Body metrics
-
-
-| Route                        | Page | Description                                        |
-| ---------------------------- | ---- | -------------------------------------------------- |
-| `/weight-height`             | List | Paginated metrics with BMI, search, column sorting |
-| `/weight-height/add`         | Add  | Weight (kg), height (cm), live BMI preview         |
-| `/weight-height/edit/<id>`   | Edit | Update existing record                             |
-| `/weight-height/delete/<id>` | —    | POST delete                                        |
-
-
-- **Use Previous Recorded Values** checkbox autofills from the latest entry via `/api/weight-height/latest`
-- Duplicate dates are rejected server-side
-- Validation errors shown via toast
-
-### Analytics (`/analytics`)
-
-Unified dashboard with filter bar (group by: daily / weekly / monthly / yearly; limit: all or last N records).
-
-**Period section**
-
-- Summary cards: cycle length, period duration, regularity, prediction confidence
-- Flow line chart and symptom frequency doughnut (excluding period symptom)
-- Completed cycle history table
-
-**Sex section**
-
-- Bar charts for sex type and position distribution
-- Summary stats from logged entries
-
-**Body metrics section**
-
-- Current weight, change, height, BMI, stability badge
-- Min / max / average stat tables
-- Weight trend and BMI progression charts (height trend chart is not shown)
-
-Chart load failures display an inline empty state **and** a danger toast with the error message.
-
-### Forecast (`/predictor`)
-
-Cycle phase intelligence powered by `utils/fertility.py`:
-
-- Interactive timeline of past, current, and predicted cycles (hover for phase, safety rating, fertility chance)
-- Phase-specific probability curves (period, building, fertile, luteal modes)
-- Trend charts for cycle length and ovulation day over time
-- Context cards: BMI, recent sex entries, predicted vs actual cycle comparison
-
-Requires enough historical period data; empty states guide the user without blocking the page.
-
-### Customize (`/customize`)
-
-- **Symptoms grid** — view, edit, delete custom symptoms; system defaults can be customized but core symptoms (date, period) cannot be removed
-- **Sex types & positions** — add, edit, delete custom options
-- **Default selections** — pre-fill flow amount, symptom intensities, and sex entry defaults on new forms
-
-Modal validation errors (empty name, etc.) use toast notifications.
-
-### Settings (`/settings`)
-
-- **Login password** — change with current + new + confirm fields
-- **View-only password** — verify current to reveal and copy; separate form to set a new shared password
-- Copy action shows a success toast
-
-### View-only sharing
-
-
-| Route                        | Description                                          |
-| ---------------------------- | ---------------------------------------------------- |
-| `/view-analytics-login`      | Email + view password for a specific user’s data     |
-| `/view-analytics-mode`       | Password-only entry when email is already in session |
-| `/view-analytics/<password>` | Legacy direct link                                   |
-
-
-View-only users see Home, Menses, Sex Entries, Weight & Height, Analytics, and Forecast **without** edit, delete, Customize, or Settings. All write actions are blocked server-side.
+* **Enabling Shared Access**:
+  1. Navigate to **Settings** (`/settings`).
+  2. Scroll to the **View-only password** section. Verify your primary password to reveal or set a shared view-only password.
+  3. Share your tracking email and the view-only password with your partner.
+* **Accessing the View-Only Dashboard**:
+  - Direct your partner to `/view-analytics-login`.
+  - Once authenticated, they can view your Home, Menses table, Intimacy list, Weight logs, Analytics charts, and Forecast calendars.
+  - **Security Restrictions**: View-only sessions have no write permissions. All add/edit/delete actions, settings modification forms, and customization pages are completely hidden from view.
 
 ---
 
-## UI components (`templates/macros.html`)
+## Data Engine Calculations
 
+### Body Mass Index (BMI) & Stability
+* Computed using weight and height. Categories include Underweight ($<18.5$), Normal ($18.5 - 24.9$), Overweight ($25 - 29.9$), and Obese ($\ge 30$).
+* Stability checks compare the standard deviation across the last three logs. Returns **Stable** (variation $\le 0.5$), **Increasing** / **Decreasing** (strictly monotonic), or **Fluctuating**.
 
-| Macro        | Use                                                       |
-| ------------ | --------------------------------------------------------- |
-| `card`       | Glass-style container with optional header icon           |
-| `btn`        | Buttons and links with variants, sizes, icons             |
-| `table`      | Responsive scrollable table wrapper                       |
-| `pagination` | Server-side page navigation                               |
-| `input_box`  | Labeled inputs with optional icons                        |
-| `dropdown`   | Styled custom dropdown synced to hidden `<select>`        |
-| `checkbox`   | Toggle checkbox                                           |
-| `textarea`   | Multi-line input                                          |
-| `stat_card`  | Dashboard metric with badge/trend                         |
-| `alert`      | Inline informational blocks (empty states, modals)        |
-| `error_list` | Server-side form error list (rare; most errors use toast) |
+### Regularity & Confidence Ratings
+* Variance in cycle lengths determines regularity categories:
+  - **Regular** ($\le 2$ days spread): 95% forecast confidence.
+  - **Moderately Regular** ($\le 5$ days spread): 80% forecast confidence.
+  - **Irregular** ($> 5$ days spread): 60% forecast confidence.
+* Prediction confidence scales from 20% (initial setup) to 95% as history is logged.
 
-
-### Theme and responsiveness
-
-- **Light / dark mode** — toggled from the navbar; preference stored in `localStorage` (`data-bs-theme` on `<html>`)
-- **Mobile nav** — collapsible right-side drawer below 768px width
-- **Tables** — horizontal scroll on small screens; menses log switches to card layout on mobile
-- **Forms** — centered columns (`col-xl-`*, `col-md-*`) stack on narrow viewports
-- **Toasts** — fixed top-right, max width 360px, adapt to viewport padding
-
-CSS variables in `styles.css` drive colors for both themes (`--primary-color`, `--card-bg`, `--metric-bg`, etc.).
+### Cycle Phase Transitions
+The application tracks four key phases chronologically in a loop:
+$$\text{Menstruation} \rightarrow \text{Follicular (Building)} \rightarrow \text{Ovulation (Fertile)} \rightarrow \text{Luteal} \rightarrow \text{Menstruation}$$
+* **Menstruation**: Days $1$ to Avg Period Length.
+* **Follicular**: Days after period to Ovulation - 6.
+* **Ovulation**: Ovulation - 5 to Ovulation + 1 (Peak fertility day).
+* **Luteal**: Ovulation + 2 to End of cycle.
 
 ---
 
-## Firestore schema
+## REST API Reference
 
-Documents are nested under `users/{email}/`.
+JSON endpoints require session authorization and return details or error messages.
 
-### `users/{email}`
-
-```json
-{ "email": "user@example.com" }
-```
-
-### `users/{email}/users_setting/settings`
-
-```json
-{
-  "email": "user@example.com",
-  "password": "hashed",
-  "view_password": "hashed_view_only",
-  "custom_symptoms": [],
-  "disabled_symptoms": [],
-  "symptom_overrides": {},
-  "custom_sex_types": [],
-  "custom_sex_positions": [],
-  "defaults": {
-    "flow_amount": 5,
-    "weird_intensity": "medium",
-    "sex_type": "",
-    "position": ""
-  },
-  "created_at": "timestamp"
-}
-```
-
-### `users/{email}/period_entries/{id}`
-
-```json
-{
-  "date": "2026-06-15",
-  "symptoms": [
-    { "name": "period", "flow_amount": 7, "start_marked": true },
-    { "name": "weird", "intensity": "medium" }
-  ],
-  "notes": "",
-  "created_at": "timestamp",
-  "updated_at": "timestamp"
-}
-```
-
-### `users/{email}/weight_height_entries/{id}`
-
-```json
-{
-  "date": "2026-06-15",
-  "weight": 67.5,
-  "height": 172.0,
-  "bmi": 22.82,
-  "bmi_category": "Normal",
-  "created_at": "timestamp",
-  "updated_at": "timestamp"
-}
-```
-
-### `users/{email}/sex_entries/{id}`
-
-```json
-{
-  "date": "2026-06-15",
-  "sex_type": "Soft",
-  "position": "Missionary",
-  "notes": "",
-  "created_at": "timestamp",
-  "updated_at": "timestamp"
-}
-```
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/weight-height` | Lists all logged metrics (newest first). |
+| `GET` | `/api/weight-height/latest` | Retrieves the most recent weight/height record. |
+| `POST` | `/api/weight-height` | Submits a new metric record (validates limits and duplicates). |
+| `PUT` | `/api/weight-height/<id>` | Updates an existing biometric record. |
+| `DELETE` | `/api/weight-height/<id>` | Removes a biometric record. |
+| `GET` | `/api/weight-height/analytics` | Returns averages and BMI distribution categories. |
+| `GET` | `/api/weight-height/trends` | Returns ascending records formatted for Chart.js. |
+| `GET` | `/api/sex-entries/trends` | Returns intimacy type and position timelines for Chart.js. |
+| `GET` | `/analytics-data` | Returns cycle lengths, menses flows, and symptoms counts for Chart.js. |
 
 ---
 
-## REST API
+## Security Specifications
 
-All JSON APIs require an authenticated session (`@api_auth_required` or `@api_login_required`).
-
-
-| Method | Endpoint                       | Description                                   |
-| ------ | ------------------------------ | --------------------------------------------- |
-| GET    | `/api/weight-height`           | All body metrics (newest first)               |
-| GET    | `/api/weight-height/latest`    | Most recent entry                             |
-| POST   | `/api/weight-height`           | Create entry (validates BMI, duplicate dates) |
-| PUT    | `/api/weight-height/<id>`      | Update entry                                  |
-| DELETE | `/api/weight-height/<id>`      | Delete entry                                  |
-| GET    | `/api/weight-height/analytics` | Weight/height/BMI summary                     |
-| GET    | `/api/weight-height/trends`    | Ascending entries for charts                  |
-| GET    | `/api/sex-entries/trends`      | Sex entries for analytics charts              |
-| GET    | `/analytics-data`              | Period/symptom data for analytics charts      |
-
-
-API errors return JSON `{ "error": "message" }` with appropriate HTTP status codes (400, 401, 404, 409).
+* **Password Security**: Primary and view-only passwords are encrypted and checked using `bcrypt`.
+* **Registration Controls**: Registration is restricted to email addresses defined in the `.env` configuration file under `ADMIN_USER`.
+* **Data Write Separation**: Session access tokens block mutation requests (POST/PUT/DELETE) on the server-side when logged in under a view-only session.
 
 ---
 
-## Analytics engine
+## Tech Stack Mappings
 
-### BMI
-
-
-\text{BMI} = \frac{\text{weight (kg)}}{(\text{height (cm)} / 100)^2}
-
-
-Categories: Underweight (<18.5), Normal (18.5–24.9), Overweight (25–29.9), Obese (≥30).
-
-### Body metric stability
-
-Compares the last three entries. **Stable** if variation ≤ 0.5 units (≤ 0.2 for BMI); **Increasing** / **Decreasing** if strictly monotonic; otherwise **Fluctuating**.
-
-### Cycle averages
-
-Period dates are grouped into contiguous blocks (gap ≤ 2 days). Cycle starts use the `start_marked` flag. Averages drive prediction windows.
-
-### Regularity
-
-
-| Cycle length spread | Label              | Consistency score |
-| ------------------- | ------------------ | ----------------- |
-| ≤ 2 days            | Regular            | 95%               |
-| ≤ 5 days            | Moderately Regular | 80%               |
-| > 5 days            | Irregular          | 60%               |
-
-
-### Prediction confidence
-
-Scales from 20% (no cycles) up to 95% based on number of historical cycles tracked.
-
-### Fertility probability (by cycle day)
-
-
-| Phase                               | Probability                                      |
-| ----------------------------------- | ------------------------------------------------ |
-| Menstruation (day ≤ period length)  | 30%                                              |
-| Pre-fertile window                  | 40%                                              |
-| Fertile window (ovulation ± window) | up to 100% (declines 15% per day from ovulation) |
-| Luteal / post-ovulation             | 30% (20% past average cycle length)              |
-
-
----
-
-## Security notes
-
-- Passwords are bcrypt-hashed before storage
-- Only emails in `ADMIN_USER` may register/log in
-- View-only mode uses a separate hashed password and cannot mutate data
-- Firestore credentials must never be committed; use `.env` or host secrets only
-
----
-
-## Tech stack
-
-
-| Layer    | Technology                            |
-| -------- | ------------------------------------- |
-| Backend  | Flask, Jinja2                         |
-| Database | Google Cloud Firestore                |
-| Auth     | Flask sessions, bcrypt                |
-| Frontend | Bootstrap 5, Font Awesome 6, Chart.js |
-| Email    | SMTP (optional, for OTP reset)        |
-| Server   | Gunicorn (production)                 |
-
-
+* **Backend**: Flask (Python), Jinja2 templates
+* **Database**: Google Cloud Firestore (NoSQL document store)
+* **Security & Auth**: Bcrypt password hashing, secure Flask session validation
+* **Frontend**: Bootstrap 5, Font Awesome 6 icons, Chart.js visualizations
+* **Email**: SMTP server routing for one-time password (OTP) delivery (optional)
+* **Deployment**: Gunicorn WSGI server (production)
