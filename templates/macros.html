@@ -47,7 +47,7 @@
 {% endmacro %}
 
 {% macro pagination(current_page, total_pages, base_url, total_count=0, per_page=12) %}
-<div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+<div class="femtrack-pagination d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
     <small class="text-muted">
         Showing <strong>{{ ((current_page - 1) * per_page) + 1 if total_count > 0 else 0 }}</strong> to <strong>{{ [current_page * per_page, total_count]|min if total_count > 0 else 0 }}</strong> of <strong>{{ total_count }}</strong> entries
     </small>
@@ -58,7 +58,7 @@
             <li class="page-item {% if current_page <= 1 %}disabled{% endif %}">
                 <a class="page-link" href="{% if current_page > 1 %}{{ base_url }}?page={{ current_page - 1 }}{% else %}#{% endif %}">Previous</a>
             </li>
-            
+
             <!-- Page Numbers -->
             {% set shown_pages = namespace(last=0) %}
             {% for p in range(1, total_pages + 1) %}
@@ -75,7 +75,7 @@
                     {% set shown_pages.last = p %}
                 {% endif %}
             {% endfor %}
-            
+
             <!-- Next Button -->
             <li class="page-item {% if current_page >= total_pages %}disabled{% endif %}">
                 <a class="page-link" href="{% if current_page < total_pages %}{{ base_url }}?page={{ current_page + 1 }}{% else %}#{% endif %}">Next</a>
@@ -83,6 +83,12 @@
         </ul>
     </nav>
     {% endif %}
+</div>
+{% endmacro %}
+
+{% macro table_pagination(current_page, total_pages, base_url, total_count=0, per_page=12) %}
+<div class="table-pagination">
+    {{ pagination(current_page, total_pages, base_url, total_count, per_page) }}
 </div>
 {% endmacro %}
 
@@ -94,34 +100,30 @@
         {% if icon %}<i class="{{ icon }} me-1"></i>{% endif %}{{ label }}
     </label>
     {% endif %}
-    <input type="{{ type }}" class="form-control" id="{{ input_id }}" name="{{ name }}" 
+    <input type="{{ type }}" class="form-control" id="{{ input_id }}" name="{{ name }}"
            placeholder="{{ placeholder }}" {% if required %}required{% endif %}
-           {% if min is not none %}min="{{ min }}"{% endif %} 
-           {% if max is not none %}max="{{ max }}"{% endif %} 
-           {% if step is not none %}step="{{ step }}"{% endif %} 
+           {% if min is not none %}min="{{ min }}"{% endif %}
+           {% if max is not none %}max="{{ max }}"{% endif %}
+           {% if step is not none %}step="{{ step }}"{% endif %}
            value="{{ value }}">
 </div>
 {% endmacro %}
 
-{% macro dropdown(name, label, options, selected_value="", id=None, required=False, icon=None, class="") %}
+{% macro dropdown(name, label, options, selected_value="", id=None, required=False, icon=None, class="", container_class="mb-3", onchange="") %}
 {% set select_id = id if id else name %}
-<div class="mb-3 custom-dropdown-container {{ class }}" id="container_{{ select_id }}">
+<div class="{{ container_class }} custom-dropdown-container {{ class }}" id="container_{{ select_id }}">
     {% if label %}
-    <label class="form-label fw-bold">
+    <label class="form-label fw-bold" for="{{ select_id }}">
         {% if icon %}<i class="{{ icon }} me-1"></i>{% endif %}{{ label }}
     </label>
     {% endif %}
-    
-    <!-- Hidden real select for form submission -->
-    <select class="d-none" id="{{ select_id }}" name="{{ name }}" {% if required %}required{% endif %}>
+    <select class="d-none" id="{{ select_id }}" name="{{ name }}" {% if required %}required{% endif %} {% if onchange %}onchange="{{ onchange }}"{% endif %}>
         {% for val, label_text in options %}
         <option value="{{ val }}" {% if val|string == selected_value|string %}selected{% endif %}>{{ label_text }}</option>
         {% endfor %}
     </select>
-    
-    <!-- Custom Styled Dropdown UI -->
     <div class="dropdown custom-select-dropdown">
-        <button class="btn btn-outline-secondary w-100 text-start d-flex justify-content-between align-items-center dropdown-toggle" 
+        <button class="btn btn-outline-secondary w-100 text-start d-flex justify-content-between align-items-center dropdown-toggle"
                 type="button" id="trigger_{{ select_id }}" data-bs-toggle="dropdown" aria-expanded="false">
             <span class="selected-text">
                 {% set ns = namespace(found=false) %}
@@ -139,8 +141,8 @@
         <ul class="dropdown-menu w-100" aria-labelledby="trigger_{{ select_id }}">
             {% for val, label_text in options %}
             <li>
-                <a class="dropdown-item {% if val|string == selected_value|string %}active{% endif %}" 
-                   href="#" data-value="{{ val }}" onclick="selectCustomDropdownOption('{{ select_id }}', '{{ val }}', this); return false;">
+                <a class="dropdown-item {% if val|string == selected_value|string %}active{% endif %}"
+                   href="#" data-value="{{ val }}" onclick="selectCustomDropdownOption('{{ select_id }}', '{{ val }}'); return false;">
                     {{ label_text }}
                 </a>
             </li>

@@ -58,9 +58,7 @@
                 </tr>
                 {% endfor %}
                 {% endcall %}
-                <div class="px-4 pb-3">
-                    {{ components.pagination(current_page, total_pages, '/sex-entries', total_count, 11) }}
-                </div>
+                {{ components.table_pagination(current_page, total_pages, '/sex-entries', total_count, 11) }}
             </div>
         </div>
         {% endif %}
@@ -99,6 +97,18 @@ function sortSexTable(column) {
         return sexSortDirection === 'asc' ? (av > bv ? 1 : av < bv ? -1 : 0) : (av < bv ? 1 : av > bv ? -1 : 0);
     });
     rows.forEach(row => tbody.appendChild(row));
+
+    // Update sort icons
+    table.querySelectorAll('.sort-icon').forEach(icon => {
+        icon.className = 'fas fa-sort text-muted ms-1 sort-icon';
+    });
+    
+    const activeIcon = table.querySelector(`[data-column="${column}"]`);
+    if (activeIcon) {
+        activeIcon.className = sexSortDirection === 'asc' 
+            ? 'fas fa-caret-up text-primary ms-1 sort-icon' 
+            : 'fas fa-caret-down text-primary ms-1 sort-icon';
+    }
 }
 </script>
 {% endblock %}

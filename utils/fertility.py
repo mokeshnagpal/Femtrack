@@ -55,6 +55,8 @@ def calculate_cycle_data(entries):
     current_cycle = None
     next_cycle = None
     fertile_window = None
+    current_fertile_window = None
+    next_fertile_window = None
     
     if period_dates:
         last_period = period_dates[-1]
@@ -189,7 +191,7 @@ def build_timeline(cycle_start, cycle_length, today):
     
     # Next cycle predictions
     next_start = cycle_start + timedelta(days=cycle_length)
-    for i in range(min(14, cycle_length)):
+    for i in range(cycle_length):
         date = next_start + timedelta(days=i)
         phase = get_cycle_phase(i, cycle_length)
         timeline.append({
@@ -215,6 +217,7 @@ def get_cycle_phase(day, cycle_length):
 
 def calculate_fertility_analytics(entries):
     """Calculate fertility intelligence metrics."""
+    print(f"[{datetime.now().isoformat()}] INFO: Running calculate_fertility_analytics with {len(entries)} entries")
     cycle_data = calculate_cycle_data(entries)
     
     # Extract period dates to compute period length

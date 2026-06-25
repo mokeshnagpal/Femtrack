@@ -44,6 +44,31 @@ document.addEventListener('DOMContentLoaded', function () {
         container.innerHTML = `<div class="alert alert-light text-center py-4 mb-0">${message}</div>`;
     }
 
+
+    function buildTrendDataset(label, values, color) {
+        const numeric = values.map(value => Number(value) || 0);
+        if (numeric.length < 2) return null;
+        const n = numeric.length;
+        const sumX = numeric.reduce((sum, _, index) => sum + index, 0);
+        const sumY = numeric.reduce((sum, value) => sum + value, 0);
+        const sumXY = numeric.reduce((sum, value, index) => sum + index * value, 0);
+        const sumXX = numeric.reduce((sum, _, index) => sum + index * index, 0);
+        const denominator = n * sumXX - sumX * sumX;
+        if (denominator === 0) return null;
+        const slope = (n * sumXY - sumX * sumY) / denominator;
+        const intercept = (sumY - slope * sumX) / n;
+        return {
+            label,
+            data: numeric.map((_, index) => Number((slope * index + intercept).toFixed(2))),
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderDash: [6, 4],
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0,
+            fill: false
+        };
+    }
     async function fetchJson(url) {
         const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
         const data = await response.json();
@@ -53,7 +78,23 @@ document.addEventListener('DOMContentLoaded', function () {
         return data;
     }
 
+    function applyGraphFocus(focus) {
+        const selectedFocus = focus || 'all';
+        document.querySelectorAll('[data-graph-focus]').forEach(section => {
+            const supportedFocuses = (section.dataset.graphFocus || '').split(' ');
+            section.classList.toggle('d-none', selectedFocus !== 'all' && !supportedFocuses.includes(selectedFocus));
+        });
+    }
+
+    window.setAnalyticsGraphFocus = applyGraphFocus;
+    const graphFocusSelect = document.getElementById('graph_focus');
+    if (graphFocusSelect) {
+        applyGraphFocus(graphFocusSelect.value);
+        graphFocusSelect.addEventListener('change', () => applyGraphFocus(graphFocusSelect.value));
+    }
+
     if (!window.Chart) {
+        window.showFemtrackToast?.('Charts could not load. Please check your connection and refresh.', 'danger');
         showChartMessage('menstrualCharts', 'Charts could not load. Please check your connection and refresh.');
         showChartMessage('bodyMetricsCharts', 'Charts could not load. Please check your connection and refresh.');
         showChartMessage('sexCharts', 'Charts could not load. Please check your connection and refresh.');
@@ -75,6 +116,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const symptoms = data.flatMap(d => d.symptoms || []);
             const periodStarts = data.filter(d => d.is_period_start).map(d => d.date);
             const amountCanvas = document.getElementById('amountChart');
+            const amountTrend = buildTrendDataset('Flow Trend', amounts, '#2f855a');
 
             if (amountCanvas) {
                 new Chart(amountCanvas, {
@@ -93,14 +135,14 @@ document.addEventListener('DOMContentLoaded', function () {
                             pointBorderColor: '#fff',
                             pointBorderWidth: 2,
                             pointRadius: 6
-                        }]
+                        }, ...(amountTrend ? [amountTrend] : [])]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
                             title: { display: true, text: 'Period Flow over Time' },
-                            legend: { display: false }
+                            legend: themedLegend('bottom')
                         },
                         scales: themedScales({ beginAtZero: true, max: 10, ticks: { color: textColor, stepSize: 1 } }, { x: 'Date', y: 'Flow Amount' })
                     }
@@ -149,6 +191,7 @@ document.addEventListener('DOMContentLoaded', function () {
         })
         .catch(error => {
             console.error('Menstrual analytics failed:', error);
+            window.showFemtrackToast?.(error.message || 'Unable to load menstrual analytics right now.', 'danger');
             showChartMessage('menstrualCharts', 'Unable to load menstrual analytics right now.');
         });
 
@@ -167,7 +210,9 @@ document.addEventListener('DOMContentLoaded', function () {
             const weights = data.map(d => Number(d.weight) || 0);
             const bmis = data.map(d => Number(d.bmi) || 0);
             const weightCanvas = document.getElementById('weightTrendChart');
+            const weightTrend = buildTrendDataset('Weight Trend Line', weights, '#2f855a');
             const bmiCanvas = document.getElementById('bmiTrendChart');
+            const bmiTrend = buildTrendDataset('BMI Trend Line', bmis, '#2f855a');
 
             if (weightCanvas) {
                 new Chart(weightCanvas, {
@@ -186,14 +231,14 @@ document.addEventListener('DOMContentLoaded', function () {
                             pointBorderColor: '#fff',
                             pointBorderWidth: 2,
                             pointRadius: 5
-                        }]
+                        }, ...(weightTrend ? [weightTrend] : [])]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
                             title: { display: true, text: 'Weight Trend' },
-                            legend: { display: false }
+                            legend: themedLegend('bottom')
                         },
                         scales: themedScales({}, { x: 'Date', y: 'Weight (kg)' })
                     }
@@ -217,14 +262,14 @@ document.addEventListener('DOMContentLoaded', function () {
                             pointBorderColor: '#fff',
                             pointBorderWidth: 2,
                             pointRadius: 5
-                        }]
+                        }, ...(bmiTrend ? [bmiTrend] : [])]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
                             title: { display: true, text: 'BMI Progression' },
-                            legend: { display: false }
+                            legend: themedLegend('bottom')
                         },
                         scales: themedScales({}, { x: 'Date', y: 'BMI' })
                     }
@@ -233,6 +278,7 @@ document.addEventListener('DOMContentLoaded', function () {
         })
         .catch(error => {
             console.error('Body metrics analytics failed:', error);
+            window.showFemtrackToast?.(error.message || 'Unable to load body metrics analytics right now.', 'danger');
             showChartMessage('bodyMetricsCharts', 'Unable to load body metrics analytics right now.');
         });
 
@@ -300,27 +346,18 @@ document.addEventListener('DOMContentLoaded', function () {
         <form class="card shadow-sm border-0" method="GET" action="/analytics">
             <div class="card-body py-3">
                 <div class="row g-3 align-items-end">
-                    <div class="col-md-4 col-12">
-                        <label for="group_by" class="form-label fw-bold small text-uppercase text-muted">Group</label>
-                        <select class="form-select" id="group_by" name="group_by">
-                            <option value="daily" {% if analytics_filters.group_by == 'daily' %}selected{% endif %}>Daily</option>
-                            <option value="weekly" {% if analytics_filters.group_by == 'weekly' %}selected{% endif %}>Weekly</option>
-                            <option value="monthly" {% if analytics_filters.group_by == 'monthly' %}selected{% endif %}>Monthly</option>
-                            <option value="yearly" {% if analytics_filters.group_by == 'yearly' %}selected{% endif %}>Yearly</option>
-                        </select>
+                    <div class="col-lg-3 col-md-6 col-12">
+                        {{ components.dropdown(name="graph_focus", label="Graph Focus", options=[("all", "All Graphs"), ("cycle", "Cycle"), ("sex", "Sex"), ("body", "Body")], selected_value=request.args.get('graph_focus', 'all'), id="graph_focus", container_class="mb-0", onchange="setAnalyticsGraphFocus(this.value)") }}
                     </div>
-                    <div class="col-md-4 col-12">
-                        <label for="limit" class="form-label fw-bold small text-uppercase text-muted">Last N</label>
-                        <select class="form-select" id="limit" name="limit">
-                            <option value="all" {% if analytics_filters.limit == 'all' %}selected{% endif %}>All</option>
-                            <option value="1" {% if analytics_filters.limit == '1' %}selected{% endif %}>1</option>
-                            <option value="5" {% if analytics_filters.limit == '5' %}selected{% endif %}>5</option>
-                            <option value="10" {% if analytics_filters.limit == '10' %}selected{% endif %}>10</option>
-                            <option value="20" {% if analytics_filters.limit == '20' %}selected{% endif %}>20</option>
-                            <option value="50" {% if analytics_filters.limit == '50' %}selected{% endif %}>50</option>
-                        </select>
+                    <div class="col-lg-3 col-md-6 col-12">
+                        {{ components.dropdown(name="group_by", label="Group", options=[("daily", "Daily"), ("weekly", "Weekly"), ("monthly", "Monthly"), ("yearly", "Yearly")], selected_value=analytics_filters.group_by, id="group_by", container_class="mb-0", onchange="this.form.submit()") }}
                     </div>
-                    <div class="col-md-4 col-12 d-flex gap-2">
+                    <div class="col-lg-3 col-md-6 col-12">
+                        {{ components.dropdown(name="limit", label="Last N", options=[("all", "All"), ("1", "1"), ("5", "5"), ("10", "10"), ("20", "20"), ("50", "50")], selected_value=analytics_filters.limit, id="limit", container_class="mb-0", onchange="this.form.submit()") }}
+                    </div>
+                    <input type="hidden" name="cycle_limit" value="{{ cycle_history_filter.cycle_limit }}">
+                    <input type="hidden" name="sex_limit" value="{{ sex_recent_filter.sex_limit }}">
+                    <div class="col-lg-3 col-md-6 col-12 analytics-filter-actions">
                         <button type="submit" class="btn btn-primary flex-fill"><i class="fas fa-filter me-1"></i>Apply</button>
                         <a href="/analytics" class="btn btn-outline-secondary flex-fill"><i class="fas fa-rotate-left me-1"></i>Reset</a>
                     </div>
@@ -331,24 +368,24 @@ document.addEventListener('DOMContentLoaded', function () {
 </div>
 
 <!-- SECTION 1: Period Analytics -->
-<div class="row mb-4">
+<div class="row mb-4" data-graph-focus="cycle">
     <div class="col-12">
         {% call components.card(title="Period Summary", icon="fas fa-star text-primary", class="shadow-sm border-0", header_class="bg-white text-dark py-3") %}
         <div class="row g-3 text-center">
-            <div class="col-md-3 col-6">
+            <div class="col-lg col-md-4 col-6">
                 {{ components.stat_card(title="Avg Cycle Length", value=fertility.average_cycle_length, unit="days",
                 icon="fas fa-calendar-alt") }}
             </div>
-            <div class="col-md-3 col-6">
+            <div class="col-lg col-md-4 col-6">
                 {{ components.stat_card(title="Avg Period Length", value=fertility.average_period_length, unit="days",
                 icon="fas fa-tint") }}
             </div>
-            <div class="col-md-3 col-6">
+            <div class="col-lg col-md-4 col-6">
                 {{ components.stat_card(title="Regularity", value=fertility.cycle_regularity_score,
                 badge_color="success" if fertility.cycle_regularity_score == 'Regular' else 'warning',
                 badge_text=fertility.cycle_regularity_score) }}
             </div>
-            <div class="col-md-3 col-6">
+            <div class="col-lg col-md-4 col-6">
                 {{ components.stat_card(title="Confidence Score", value=fertility.fertility_confidence_score, unit="%",
                 icon="fas fa-smile") }}
             </div>
@@ -358,7 +395,7 @@ document.addEventListener('DOMContentLoaded', function () {
 </div>
 
 <!-- Period Charts -->
-<div class="row mb-4" id="menstrualCharts">
+<div class="row mb-4" id="menstrualCharts" data-graph-focus="cycle">
     <div class="col-lg-8 col-md-12">
         {% call components.card(title="Period Flow over Time", icon="fas fa-droplet text-danger", class="shadow-sm
         h-100", header_class="bg-white text-dark border-0 pb-0") %}
@@ -383,9 +420,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <!-- SECTION 3: Cycle History Table -->
 {% if cycle_history_rows and cycle_history_rows|length > 0 %}
-<div class="row mb-4">
+<div class="row mb-4" data-graph-focus="cycle">
     <div class="col-12">
         {% call components.card(title="Cycle History Log", icon="fas fa-history text-secondary", class="shadow-sm", header_class="py-3") %}
+        <form method="GET" action="/analytics" class="row g-3 align-items-end mb-3">
+            <input type="hidden" name="group_by" value="{{ analytics_filters.group_by }}">
+            <input type="hidden" name="limit" value="{{ analytics_filters.limit }}">
+            <input type="hidden" name="sex_limit" value="{{ sex_recent_filter.sex_limit }}">
+            <div class="col-md-3 col-sm-6 col-12">
+                {{ components.dropdown(name="cycle_limit", label="Cycle History Last N", options=[("1", "1"), ("3", "3"), ("5", "5"), ("10", "10"), ("20", "20"), ("50", "50"), ("all", "All")], selected_value=cycle_history_filter.cycle_limit, id="analytics_cycle_limit", container_class="mb-0", onchange="this.form.submit()") }}
+            </div>
+        </form>
         {% if analytics_filters.group_by == 'daily' %}
             {% call components.table(headers=["Cycle Start Date", "Cycle Length (Days)", "Status"]) %}
             {% for cycle in cycle_history_rows %}
@@ -425,17 +470,29 @@ document.addEventListener('DOMContentLoaded', function () {
 </div>
 {% endif %}
 <!-- SECTION 4: Sex Analytics -->
-<div class="row mb-4">
+<div class="row mb-4" data-graph-focus="sex">
     <div class="col-12">
         {% call components.card(title="Sex Summary", icon="fas fa-heart text-danger", class="shadow-sm border-0", header_class="py-3") %}
+        {% set intimacy_label = "No pattern yet" %}
+        {% set intimacy_note = "Add entries to see a clearer picture" %}
+        {% if sex_summary.total >= 5 %}
+            {% set intimacy_label = "Well documented" %}
+            {% set intimacy_note = "Enough context for trend reading" %}
+        {% elif sex_summary.total > 0 %}
+            {% set intimacy_label = "Early context" %}
+            {% set intimacy_note = "A few entries are available" %}
+        {% endif %}
         <div class="row g-3 text-center">
-            <div class="col-md-4 col-6">
-                {{ components.stat_card(title="Total Sex Entries", value=sex_summary.total, icon="fas fa-list") }}
+            <div class="col-lg-3 col-md-6 col-6">
+                {{ components.stat_card(title="Total Intimacy Entries", value=sex_summary.total, icon="fas fa-list") }}
             </div>
-            <div class="col-md-4 col-6">
+            <div class="col-lg-3 col-md-6 col-6">
+                {{ components.stat_card(title="Intimacy Wellbeing", value=intimacy_label, subtext=intimacy_note, icon="fas fa-heart-pulse") }}
+            </div>
+            <div class="col-lg-3 col-md-6 col-6">
                 {{ components.stat_card(title="Most Common Type", value=sex_summary.most_common_type, subtext=sex_summary.most_common_type_count ~ " entries", icon="fas fa-heart-circle-check") }}
             </div>
-            <div class="col-md-4 col-12">
+            <div class="col-lg-3 col-md-6 col-12">
                 {{ components.stat_card(title="Most Common Position", value=sex_summary.most_common_position, subtext=sex_summary.most_common_position_count ~ " entries", icon="fas fa-person") }}
             </div>
         </div>
@@ -454,6 +511,14 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
         </div>
         {% if sex_summary.recent %}
+        <form method="GET" action="/analytics" class="row g-3 align-items-end mt-3 mb-2">
+            <input type="hidden" name="group_by" value="{{ analytics_filters.group_by }}">
+            <input type="hidden" name="limit" value="{{ analytics_filters.limit }}">
+            <input type="hidden" name="cycle_limit" value="{{ cycle_history_filter.cycle_limit }}">
+            <div class="col-md-3 col-sm-6 col-12">
+                {{ components.dropdown(name="sex_limit", label="Recent Sex Last N", options=[("1", "1"), ("3", "3"), ("5", "5"), ("10", "10"), ("20", "20"), ("50", "50"), ("all", "All")], selected_value=sex_recent_filter.sex_limit, id="analytics_sex_limit", container_class="mb-0", onchange="this.form.submit()") }}
+            </div>
+        </form>
         <div class="table-responsive mt-3">
             <table class="table table-sm align-middle mb-0">
                 <thead><tr><th>Date</th><th>Type</th><th>Position</th></tr></thead>
@@ -473,11 +538,11 @@ document.addEventListener('DOMContentLoaded', function () {
     </div>
 </div>
 <!-- SECTION 5: Body Metrics Overview -->
-<div class="row mb-4">
+<div class="row mb-4" data-graph-focus="body">
     <div class="col-12">
         {% call components.card(title="Body Metrics Summary", icon="fas fa-weight text-success", class="shadow-sm border-0", header_class="bg-white text-dark py-3") %}
         <div class="row g-3 text-center mb-4">
-            <div class="col-md-3 col-6">
+            <div class="col-lg col-md-4 col-6">
                 {% set wt_class = "text-muted" %}
                 {% set wt_text = "No change" %}
                 {% if weight_height.weight.change > 0 %}
@@ -487,11 +552,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     weight_height.weight.change ~ " kg" %} {% endif %} {{ components.stat_card(title="Current Weight" ,
                     value=weight_height.weight.current, unit="kg" , subtext="since prev" , trend_class=wt_class,
                     trend_text=wt_text, icon="fas fa-weight-hanging" ) }} </div>
-                    <div class="col-md-3 col-6">
+                    <div class="col-lg col-md-4 col-6">
                         {{ components.stat_card(title="Current Height", value=weight_height.height.current, unit="cm",
                         subtext="Trend: " ~ weight_height.height.trend, icon="fas fa-ruler-vertical") }}
                     </div>
-                    <div class="col-md-3 col-6">
+                    <div class="col-lg col-md-4 col-6">
                         {% set bmi_badge = "success" %}
                         {% if weight_height.bmi.category == 'Underweight' or weight_height.bmi.category == 'Overweight'
                         %}
@@ -502,8 +567,11 @@ document.addEventListener('DOMContentLoaded', function () {
                         {{ components.stat_card(title="Current BMI", value=weight_height.bmi.current,
                         badge_color=bmi_badge, badge_text=weight_height.bmi.category, icon="fas fa-heartbeat") }}
                     </div>
-                    <div class="col-md-3 col-6">
-                        {{ components.stat_card(title="Stability", value=weight_height.weight.stability, subtext="BMI: "
+                    <div class="col-lg col-md-4 col-6">
+                        {{ components.stat_card(title="Body Composition Range", value=weight_height.bmi.category, subtext="Based on latest BMI", icon="fas fa-circle-check") }}
+                    </div>
+                    <div class="col-lg col-md-4 col-6">
+                        {{ components.stat_card(title="Trend Steadiness", value=weight_height.weight.stability, subtext="BMI: "
                         ~ weight_height.bmi.stability, icon="fas fa-tachometer-alt") }}
                     </div>
             </div>
@@ -574,7 +642,7 @@ document.addEventListener('DOMContentLoaded', function () {
     </div>
 
     <!-- Body Metrics Charts -->
-    <div class="row mb-4" id="bodyMetricsCharts">
+    <div class="row mb-4" id="bodyMetricsCharts" data-graph-focus="body">
         <div class="col-lg-6 col-md-12 mb-3">
             {% call components.card(title="Weight Trend (kg)", icon="fas fa-weight-hanging text-primary",
             class="shadow-sm h-100", header_class="bg-white text-dark border-0 pb-0") %}
@@ -595,7 +663,3 @@ document.addEventListener('DOMContentLoaded', function () {
         </div>
     </div>
     {% endblock %}
-
-
-
-

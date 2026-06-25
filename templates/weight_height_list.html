@@ -82,9 +82,7 @@
                 {% endcall %}
                 
                 <!-- Pagination Controls -->
-                <div class="px-4 pb-3">
-                    {{ components.pagination(current_page, total_pages, '/weight-height', total_count) }}
-                </div>
+                {{ components.table_pagination(current_page, total_pages, '/weight-height', total_count) }}
             </div>
         </div>
         {% endif %}

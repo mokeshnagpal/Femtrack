@@ -87,6 +87,40 @@ document.addEventListener('DOMContentLoaded', function() {
     {% else %}
     // Set date to today by default (for new entries)
     document.getElementById('date').valueAsDate = new Date();
+    
+    // Pre-populate user defaults if they exist
+    const userDefaults = {{ user_defaults|tojson|safe if user_defaults else 'null' }};
+    if (userDefaults) {
+        if (userDefaults.flow_amount !== undefined && userDefaults.flow_amount !== null) {
+            document.getElementById('flowAmount').value = userDefaults.flow_amount;
+            document.getElementById('flowValue').textContent = userDefaults.flow_amount;
+        }
+        if (userDefaults.weird_intensity) {
+            document.getElementById('weird').checked = true;
+            document.getElementById('weirdIntensity').value = userDefaults.weird_intensity;
+            window.syncCustomDropdown?.('weirdIntensity');
+            document.getElementById('weirdSection').classList.remove('d-none');
+        }
+        if (userDefaults.craving_intensity) {
+            document.getElementById('craving').checked = true;
+            document.getElementById('cravingIntensity').value = userDefaults.craving_intensity;
+            window.syncCustomDropdown?.('cravingIntensity');
+            document.getElementById('cravingSection').classList.remove('d-none');
+        }
+        if (userDefaults.irritation_intensity) {
+            document.getElementById('irritation').checked = true;
+            document.getElementById('irritationIntensity').value = userDefaults.irritation_intensity;
+            window.syncCustomDropdown?.('irritationIntensity');
+            document.getElementById('irritationSection').classList.remove('d-none');
+        }
+        if (userDefaults.diarrhea_intensity === 'yes') {
+            const elem = document.getElementById('diarrhea');
+            if (elem) {
+                elem.checked = true;
+                document.getElementById('diarrheaSection').classList.remove('d-none');
+            }
+        }
+    }
     {% endif %}
     
     // Symptom checkboxes
@@ -260,65 +294,15 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Function to display validation errors
 function displayValidationErrors(errors) {
-    const errorBox = document.getElementById('validationErrorBox');
-    const errorList = document.getElementById('errorList');
-    
-    if (!errorBox || !errorList) return;
-    
-    // Clear previous errors
-    errorList.innerHTML = '';
-    
-    // Add each error as a list item
-    errors.forEach(function(error) {
-        const li = document.createElement('li');
-        li.className = 'mb-2';
-        li.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + error;
-        errorList.appendChild(li);
-    });
-    
-    // Show the error box
-    errorBox.classList.remove('d-none');
-    
-    // Scroll to error box
-    errorBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    window.showFemtrackErrors?.(errors);
 }
-
-// Function to hide validation errors
-function hideValidationErrors() {
-    const errorBox = document.getElementById('validationErrorBox');
-    if (errorBox) {
-        errorBox.classList.add('d-none');
-    }
-}
-
-// Clear errors when form is valid (optional - for better UX)
-document.addEventListener('DOMContentLoaded', function() {
-    const formInputs = document.querySelectorAll('input[type="checkbox"], input[type="date"], textarea, select');
-    formInputs.forEach(function(input) {
-        input.addEventListener('change', hideValidationErrors);
-    });
-});
 </script>
 {% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-xl-7 col-lg-8 col-md-10 col-sm-12">
-        <!-- Validation Error Box -->
-        <div id="validationErrorBox" class="alert alert-danger alert-dismissible fade show d-none mb-4" role="alert">
-            <div class="d-flex align-items-start">
-                <div>
-                    <h5 class="alert-heading mb-3">
-                        <i class="fas fa-exclamation-triangle"></i> Validation Errors
-                    </h5>
-                    <ul id="errorList" class="mb-0 ps-0 list-unstyled">
-                    </ul>
-                </div>
-            </div>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" onclick="hideValidationErrors()"></button>
-        </div>
 
         <div class="card shadow-lg">
             <div class="card-header bg-gradient-primary text-white text-center py-4 position-relative">
@@ -588,55 +572,6 @@ html[data-bs-theme="dark"] .form-section {
         padding: 0.6rem 1rem;
         font-size: 0.95rem;
     }
-}
-
-/* Validation Error Box Styling */
-#validationErrorBox {
-    border-left: 4px solid #dc3545;
-    animation: slideIn 0.3s ease-out;
-}
-
-#validationErrorBox.alert-danger {
-    background-color: #f8d7da;
-    border-color: #f5c6cb;
-    color: #721c24;
-}
-
-#validationErrorBox .alert-heading {
-    color: #721c24;
-    font-weight: 600;
-}
-
-#validationErrorBox #errorList li {
-    padding: 0.4rem 0;
-    font-size: 0.95rem;
-}
-
-#validationErrorBox #errorList li i {
-    margin-right: 0.5rem;
-    color: #dc3545;
-}
-
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Dark mode support for error box */
-html[data-bs-theme="dark"] #validationErrorBox.alert-danger {
-    background-color: #4a1f1f;
-    border-color: #8b3d3d;
-    color: #f8d7da;
-}
-
-html[data-bs-theme="dark"] #validationErrorBox .alert-heading {
-    color: #f8d7da;
 }
 
 /* Help Modal Styling */

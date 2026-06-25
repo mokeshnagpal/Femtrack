@@ -6,672 +6,1225 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        function formatDate(isoDate) {
-            if (!isoDate) return 'N/A';
-            const date = new Date(isoDate + 'T00:00:00');
-            const options = { year: 'numeric', month: 'long', day: 'numeric' };
-            return date.toLocaleDateString('en-US', options);
-        }
+document.addEventListener('DOMContentLoaded', function () {
+    const cycleData = {{ cycle_data | tojson }};
+    const rootStyles = getComputedStyle(document.documentElement);
+    const textColor = (rootStyles.getPropertyValue('--text-color') || '#2c3e50').trim();
+    const borderColor = (rootStyles.getPropertyValue('--border-color') || '#e0e0e0').trim();
+    const gridColor = document.documentElement.getAttribute('data-bs-theme') === 'dark'
+        ? 'rgba(255, 255, 255, 0.16)'
+        : 'rgba(44, 62, 80, 0.14)';
 
-        const cycleData = {{ cycle_data | tojson
-    }};
-    const chartTheme = getForecastChartTheme();
-    Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
-    Chart.defaults.color = chartTheme.textColor;
-
-    function getForecastChartTheme() {
-        const styles = getComputedStyle(document.documentElement);
-        const textColor = (styles.getPropertyValue('--text-color') || '#27212b').trim();
-        const borderColor = (styles.getPropertyValue('--border-color') || '#e7dfe4').trim();
-        return {
-            textColor,
-            gridColor: document.documentElement.getAttribute('data-bs-theme') === 'dark'
-                ? 'rgba(255, 255, 255, 0.16)'
-                : 'rgba(39, 33, 43, 0.18)',
-            borderColor
-        };
-    }
-
-    function themedForecastScales(extraY = {}) {
-        const tickOverrides = extraY.ticks || {};
-        const yOptions = { ...extraY };
-        delete yOptions.ticks;
-        return {
-            x: {
-                ticks: { color: chartTheme.textColor, font: { weight: 600 } },
-                grid: { color: chartTheme.gridColor, drawBorder: true },
-                border: { color: chartTheme.borderColor }
-            },
-            y: {
-                ...yOptions,
-                ticks: { color: chartTheme.textColor, font: { weight: 600 }, ...tickOverrides },
-                grid: { color: chartTheme.gridColor, drawBorder: true },
-                border: { color: chartTheme.borderColor }
-            }
-        };
-    }
-
-    function themedForecastLegend() {
-        return { labels: { color: chartTheme.textColor, font: { weight: 600 } } };
-    }
-
-    const timelineData = cycleData && cycleData.timeline ? cycleData.timeline : [];
-    const prevCycleData = timelineData.filter(d => d.cycle === 'previous');
-    const currentCycleData = timelineData.filter(d => d.cycle === 'current');
-    const nextCycleData = timelineData.filter(d => d.cycle === 'next');
-
-    // Create cycle timeline visualization
-    function createCycleTimeline(containerId, cycleDataObj, title) {
-        const container = document.getElementById(containerId);
-        if (!container || !Array.isArray(cycleDataObj)) return;
-
-        const actualOvulationDay = cycleData.average_ovulation_day || 14;
-        const cycleLength = cycleData.average_cycle_length || 28;
-
-        function getPhaseColor(day, phase, ovulationDay, cycle_length) {
-            let baseColor = '#6c757d';
-            let intensity = 0.3;
-            let phaseName = 'Unknown';
-
-            switch (phase) {
-                case 'menstruation':
-                    const periodProgress = Math.min((day - 1) / 4, 1);
-                    intensity = Math.max(0.5 - (periodProgress * 0.1), 0.3);
-                    baseColor = '#b02a37'; // Wine red
-                    phaseName = 'Menstruation (Period)';
-                    break;
-                case 'follicular':
-                    const follicularProgress = (day - 5) / 8;
-                    intensity = 0.4 + (follicularProgress * 0.4); // 0.4 to 0.8
-                    baseColor = '#d39e00'; // Golden yellow
-                    phaseName = 'Follicular Phase';
-                    break;
-                case 'ovulation':
-                    const distanceFromPeak = Math.abs(day - ovulationDay);
-                    intensity = Math.max(1.0 - (distanceFromPeak * 0.15), 0.6);
-                    baseColor = '#d35400'; // Orange
-                    phaseName = 'Ovulation (Peak Fertility)';
-                    break;
-                case 'luteal':
-                    const lutealProgress = (day - ovulationDay - 1) / (cycle_length - ovulationDay - 1);
-                    intensity = Math.max(0.5 - (lutealProgress * 0.1), 0.3);
-                    baseColor = '#1e7e34'; // Green
-                    phaseName = 'Luteal Phase (Safe)';
-                    break;
-            }
-
-            intensity = Math.max(0.3, Math.min(1.0, intensity));
-            return { baseColor, intensity, phaseName };
-        }
-
-        container.innerHTML = `
-            <div class="cycle-timeline-container">
-                <h6 class="timeline-title">${title}</h6>
-                ${title.includes('Current & Upcoming') ? `
-                <div class="timeline-legend" style="text-align: center; margin-bottom: 10px; font-size: 12px;">
-                    <span style="color: #28a745; font-weight: bold;">● Actual Tracking</span> 
-                    <span style="color: #6c757d; font-weight: bold;">● Predictions</span>
-                </div>
-                ` : ''}
-                <div class="cycle-timeline">
-                    ${cycleDataObj.map(day => {
-            const { baseColor, intensity, phaseName } = getPhaseColor(day.day, day.phase, actualOvulationDay, cycleLength);
-            const isPredicted = day.cycle === 'next';
-            const isCalculated = day.cycle === 'next' || (day.cycle === 'current' && day.is_future);
-            const colorWithIntensity = adjustColorIntensity(baseColor, intensity);
-
-            return `
-                            <div class="timeline-day ${isPredicted ? 'predicted' : ''} ${isCalculated ? 'calculated' : 'actual'}"
-                                 data-day="${day.day}"
-                                 data-date="${day.date}"
-                                 data-phase="${phaseName}"
-                                 data-intensity="${intensity.toFixed(2)}"
-                                 data-cycle="${day.cycle}"
-                                 style="--phase-color: ${colorWithIntensity}">
-                                 <div class="day-line" style="background-color: ${colorWithIntensity}${isPredicted ? '80' : ''}"></div>
-                                 <div class="day-number ${isCalculated ? 'calculated-text' : 'actual-text'}">${day.day}</div>
-                            </div>
-                        `;
-        }).join('')}
-                </div>
-            </div>
-        `;
-
-        function adjustColorIntensity(hexColor, intensity) {
-            const r = parseInt(hexColor.slice(1, 3), 16);
-            const g = parseInt(hexColor.slice(3, 5), 16);
-            const b = parseInt(hexColor.slice(5, 7), 16);
-            const adjustedR = Math.round(255 - (255 - r) * intensity);
-            const adjustedG = Math.round(255 - (255 - g) * intensity);
-            const adjustedB = Math.round(255 - (255 - b) * intensity);
-            return `#${adjustedR.toString(16).padStart(2, '0')}${adjustedG.toString(16).padStart(2, '0')}${adjustedB.toString(16).padStart(2, '0')}`;
-        }
-
-        // Setup Tooltips
-        container.querySelectorAll('.timeline-day').forEach(day => {
-            let moveHandler = null;
-            day.addEventListener('mouseenter', function (e) {
-                const tooltip = document.createElement('div');
-                tooltip.className = 'timeline-tooltip';
-
-                const dayNum = parseInt(this.dataset.day);
-                const phase = this.dataset.phase;
-                const date = this.dataset.date;
-                const intensityVal = parseFloat(this.dataset.intensity) * 100;
-
-                const isCalculated = this.classList.contains('calculated');
-                const dataType = isCalculated ? '🔮 Predicted' : '✅ Tracked';
-
-                let safetyInfo = '';
-                let details = '';
-
-                if (phase.includes('Period')) {
-                    safetyInfo = '🔴 Low fertility (contraception safe)';
-                    details = 'Menstrual bleeding - low risk of pregnancy';
-                } else if (phase.includes('Follicular')) {
-                    safetyInfo = '🟡 Moderate fertility risk';
-                    details = 'Follicular phase - eggs are maturing';
-                } else if (phase.includes('Ovulation')) {
-                    safetyInfo = '⚡ PEAK fertility window';
-                    details = 'Ovulation day - highest pregnancy risk';
-                } else {
-                    safetyInfo = '🟢 Low fertility (contraception safe)';
-                    details = 'Luteal phase - post-ovulatory non-fertile days';
-                }
-
-                tooltip.innerHTML = `
-                    <div class="tooltip-header">
-                        <strong>Day ${dayNum}</strong>
-                        <small>${formatDate(date)}</small>
-                    </div>
-                    <div class="tooltip-body">
-                        <div class="tooltip-phase">${phase}</div>
-                        <div class="tooltip-intensity">Fertility Rank: ${intensityVal.toFixed(0)}%</div>
-                        <div class="tooltip-safety">${safetyInfo}</div>
-                        <div class="tooltip-details">${details}</div>
-                        <div class="tooltip-type"><em>${dataType}</em></div>
-                    </div>
-                `;
-
-                document.body.appendChild(tooltip);
-
-                const tooltipRect = tooltip.getBoundingClientRect();
-                let left = e.clientX + 15;
-                let top = e.clientY - 10;
-
-                if (left + tooltipRect.width > window.innerWidth - 10) {
-                    left = Math.max(10, e.clientX - tooltipRect.width - 15);
-                }
-                if (top + tooltipRect.height > window.innerHeight - 10) {
-                    top = e.clientY - tooltipRect.height - 15;
-                }
-                tooltip.style.left = left + 'px';
-                tooltip.style.top = top + 'px';
-
-                moveHandler = (moveEvent) => {
-                    const currentTooltip = document.querySelector('.timeline-tooltip');
-                    if (!currentTooltip) return;
-                    let nLeft = moveEvent.clientX + 15;
-                    let nTop = moveEvent.clientY - 10;
-                    const r = currentTooltip.getBoundingClientRect();
-                    if (nLeft + r.width > window.innerWidth - 10) {
-                        nLeft = Math.max(10, moveEvent.clientX - r.width - 15);
-                    }
-                    if (nTop + r.height > window.innerHeight - 10) {
-                        nTop = moveEvent.clientY - r.height - 15;
-                    }
-                    currentTooltip.style.left = nLeft + 'px';
-                    currentTooltip.style.top = nTop + 'px';
-                };
-                document.addEventListener('mousemove', moveHandler);
-            });
-
-            day.addEventListener('mouseleave', function () {
-                const tooltip = document.querySelector('.timeline-tooltip');
-                if (tooltip) tooltip.remove();
-                if (moveHandler) {
-                    document.removeEventListener('mousemove', moveHandler);
-                    moveHandler = null;
-                }
-            });
+    function formatDate(value) {
+        if (!value) return 'N/A';
+        const date = new Date(`${value}T00:00:00`);
+        return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-US', {
+            day: 'numeric', month: 'short', year: 'numeric'
         });
     }
 
-    if (prevCycleData.length > 0) {
-        createCycleTimeline('prevCycleTimeline', prevCycleData, 'Previous Period Timeline');
+    function formatShortDate(value) {
+        if (!value) return '';
+        const date = new Date(`${value}T00:00:00`);
+        return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-US', {
+            day: 'numeric', month: 'short'
+        });
     }
-    createCycleTimeline('currentCycleTimeline', [...currentCycleData, ...nextCycleData], 'Current & Upcoming Period Timeline');
 
-    // Parse past cycles for trends
-    const previousCycles = (cycleData.previous_cycles || []).slice().reverse(); // oldest first
-    if (previousCycles.length > 0) {
-        const cycleLabels = previousCycles.map((c, i) => `Cycle ${i + 1}`);
-        const cycleLengths = previousCycles.map(c => c.length);
-        const ovulationDays = previousCycles.map(c => Math.max(1, c.length - 14));
+    function phaseMeta(phase) {
+        const phases = {
+            menstruation: { label: 'Period', color: '#b02a37', risk: 'Low', note: 'Bleeding days' },
+            follicular: { label: 'Building', color: '#c05621', risk: 'Moderate', note: 'Fertility rising' },
+            ovulation: { label: 'Fertile', color: '#9f2f55', risk: 'High', note: 'Peak window' },
+            luteal: { label: 'Luteal', color: '#2f855a', risk: 'Low', note: 'Post-ovulation' }
+        };
+        return phases[phase] || { label: 'Unknown', color: '#6c757d', risk: 'Unknown', note: 'Not classified' };
+    }
 
-        const ctxTrends = document.getElementById('cycleTrendsChart').getContext('2d');
-        new Chart(ctxTrends, {
+    function fertilityScore(day) {
+        const periodLength = cycleData.average_period_length || 5;
+        const ovulationDay = cycleData.average_ovulation_day || 14;
+        const cycleLength = cycleData.average_cycle_length || 28;
+        if (day <= periodLength) return 30;
+        if (day < ovulationDay - 5) return 40;
+        if (day <= ovulationDay + 1) return Math.max(50, 100 - Math.abs(day - ovulationDay) * 15);
+        if (day <= cycleLength) return 30;
+        return 20;
+    }
+
+    const forecastModes = {
+        menstruation: {
+            label: 'Period',
+            chartTitle: 'Period Phase Forecast',
+            datasetLabel: 'Menstruation Probability',
+            yTitle: 'Probability (%)',
+            color: '#b02a37',
+            trendColor: '#ffc107',
+            icon: 'fas fa-droplet',
+            score(day) {
+                const periodLength = cycleData.average_period_length || 5;
+                if (day <= periodLength) return 95;
+                if (day <= periodLength + 2) return 45;
+                return 15;
+            }
+        },
+        follicular: {
+            label: 'Building',
+            chartTitle: 'Building (Follicular) Phase Forecast',
+            datasetLabel: 'Follicular Development',
+            yTitle: 'Development Score (%)',
+            color: '#c05621',
+            trendColor: '#9f2f55',
+            icon: 'fas fa-leaf',
+            score(day) {
+                const periodLength = cycleData.average_period_length || 5;
+                const ovulationDay = cycleData.average_ovulation_day || 14;
+                if (day <= periodLength) return 10;
+                if (day < ovulationDay) {
+                    const span = ovulationDay - periodLength;
+                    const progress = span > 0 ? (day - periodLength) / span : 0;
+                    return Math.round(20 + progress * 70);
+                }
+                return 15;
+            }
+        },
+        ovulation: {
+            label: 'Fertile',
+            chartTitle: 'Fertile Window Forecast',
+            datasetLabel: 'Conception Probability',
+            yTitle: 'Probability (%)',
+            color: '#9f2f55',
+            trendColor: '#2f855a',
+            icon: 'fas fa-heart',
+            score: fertilityScore
+        },
+        luteal: {
+            label: 'Luteal',
+            chartTitle: 'Luteal Phase Forecast',
+            datasetLabel: 'Luteal Score',
+            yTitle: 'Score (%)',
+            color: '#2f855a',
+            trendColor: '#6f3a75',
+            icon: 'fas fa-shield-heart',
+            score(day) {
+                const ovulationDay = cycleData.average_ovulation_day || 14;
+                const cycleLength = cycleData.average_cycle_length || 28;
+                if (day <= ovulationDay + 1) return 10;
+                if (day <= cycleLength) {
+                    const span = cycleLength - (ovulationDay + 1);
+                    const progress = span > 0 ? (day - (ovulationDay + 1)) / span : 0;
+                    return Math.round(40 + progress * 50);
+                }
+                return 30;
+            }
+        }
+    };
+
+    function calculatePhaseDates(phaseName, cycleStartDateStr) {
+        if (!cycleStartDateStr) return null;
+        const cycleStart = new Date(`${cycleStartDateStr}T00:00:00`);
+        const cycleLength = cycleData.average_cycle_length || 28;
+        const periodLength = cycleData.average_period_length || 5;
+        const ovulationDay = cycleData.average_ovulation_day || 14;
+
+        let startOffset = 0;
+        let endOffset = cycleLength - 1;
+
+        if (phaseName === 'menstruation') {
+            endOffset = Math.max(0, periodLength - 1);
+        } else if (phaseName === 'follicular') {
+            startOffset = periodLength;
+            endOffset = Math.max(startOffset, ovulationDay - 6);
+        } else if (phaseName === 'ovulation') {
+            startOffset = Math.max(periodLength, ovulationDay - 5);
+            endOffset = ovulationDay + 1;
+        } else if (phaseName === 'luteal') {
+            startOffset = ovulationDay + 2;
+            endOffset = cycleLength - 1;
+        }
+        
+        const startDate = new Date(cycleStart.getTime());
+        startDate.setDate(startDate.getDate() + startOffset);
+        
+        const endDate = new Date(cycleStart.getTime());
+        endDate.setDate(endDate.getDate() + endOffset);
+        
+        return {
+            startStr: formatDate(startDate.toISOString().split('T')[0]),
+            endStr: formatDate(endDate.toISOString().split('T')[0]),
+            startIso: startDate.toISOString().split('T')[0],
+            endIso: endDate.toISOString().split('T')[0]
+        };
+    }
+
+    function classifyWindow(startIso, endIso) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const start = new Date(`${startIso}T00:00:00`);
+        const end = new Date(`${endIso}T00:00:00`);
+        if (end < today) return 'past';
+        if (start > today) return 'predicted';
+        return 'current';
+    }
+
+    const windowStatusMeta = {
+        past: { label: 'From your data', badge: 'bg-secondary' },
+        current: { label: 'In progress', badge: 'bg-primary' },
+        predicted: { label: 'Predicted', badge: 'bg-warning text-dark' }
+    };
+
+    function applyWindowPresentation(prefix, windowInfo) {
+        const card = document.getElementById(`forecastStat${prefix}WindowCard`);
+        const badge = document.getElementById(`forecastStat${prefix}WindowBadge`);
+        const hint = document.getElementById(`forecastStat${prefix}WindowHint`);
+        if (!windowInfo) {
+            setForecastText(`forecastStat${prefix}Window`, 'N/A');
+            if (badge) badge.className = 'badge d-none';
+            if (hint) hint.textContent = prefix === 'Current' ? 'This cycle date range' : 'Upcoming cycle date range';
+            if (card) card.classList.remove('forecast-window-past', 'forecast-window-current', 'forecast-window-predicted');
+            return;
+        }
+
+        const status = classifyWindow(windowInfo.startIso, windowInfo.endIso);
+        const meta = windowStatusMeta[status];
+        setForecastText(`forecastStat${prefix}Window`, `${windowInfo.startStr} – ${windowInfo.endStr}`);
+
+        if (badge) {
+            badge.textContent = meta.label;
+            badge.className = `badge ${meta.badge}`;
+        }
+        if (hint) {
+            hint.textContent = status === 'past'
+                ? 'Dates already passed in this cycle'
+                : status === 'predicted'
+                    ? 'Estimated from your cycle history'
+                    : 'Active window based on today';
+        }
+        if (card) {
+            card.classList.remove('forecast-window-past', 'forecast-window-current', 'forecast-window-predicted');
+            card.classList.add(`forecast-window-${status}`);
+        }
+    }
+
+    function buildTrendDataset(label, values, color) {
+        const numeric = values.map(value => Number(value) || 0);
+        if (numeric.length < 2) return null;
+        const n = numeric.length;
+        const sumX = numeric.reduce((sum, _, index) => sum + index, 0);
+        const sumY = numeric.reduce((sum, value) => sum + value, 0);
+        const sumXY = numeric.reduce((sum, value, index) => sum + index * value, 0);
+        const sumXX = numeric.reduce((sum, _, index) => sum + index * index, 0);
+        const denominator = n * sumXX - sumX * sumX;
+        if (denominator === 0) return null;
+        const slope = (n * sumXY - sumX * sumY) / denominator;
+        const intercept = (sumY - slope * sumX) / n;
+        return {
+            label,
+            data: numeric.map((_, index) => Number((slope * index + intercept).toFixed(2))),
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderDash: [6, 4],
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0,
+            fill: false
+        };
+    }
+    function chartScales(yTitle, yOptions = {}, xTitle = 'Cycle Day') {
+        return {
+            x: {
+                ticks: { color: textColor, font: { weight: 600 } },
+                grid: { color: gridColor },
+                title: { display: true, text: xTitle, color: textColor }
+            },
+            y: {
+                ...yOptions,
+                ticks: { color: textColor, font: { weight: 600 }, ...(yOptions.ticks || {}) },
+                grid: { color: gridColor },
+                title: { display: true, text: yTitle, color: textColor }
+            }
+        };
+    }
+
+    function getPregnancyChance(modeName, score) {
+        if (modeName === 'ovulation') {
+            if (score >= 80) return 'Peak';
+            if (score >= 50) return 'High';
+            return 'Moderate';
+        }
+        if (modeName === 'follicular') {
+            return score >= 50 ? 'Moderate' : 'Low';
+        }
+        if (modeName === 'menstruation') {
+            return score >= 80 ? 'Low (active period)' : 'Very Low';
+        }
+        return 'Low';
+    }
+
+    function getConceptionLikelihoodLabel(score) {
+        if (score >= 80) return 'Very high';
+        if (score >= 65) return 'High';
+        if (score >= 45) return 'Moderate';
+        if (score >= 30) return 'Low';
+        return 'Very low';
+    }
+
+    function getIntimacyTip(conceiveScore) {
+        if (conceiveScore >= 65) return { text: 'Strong day if you are trying to conceive', type: 'conceive' };
+        if (conceiveScore <= 30) return { text: 'Lower estimated pregnancy chance for intimacy', type: 'safer' };
+        return { text: 'Moderate timing — use your preferred protection', type: 'neutral' };
+    }
+
+    let forecastDayTooltip = null;
+
+    function ensureForecastDayTooltip() {
+        if (!forecastDayTooltip) {
+            forecastDayTooltip = document.createElement('div');
+            forecastDayTooltip.id = 'forecastDayTooltip';
+            forecastDayTooltip.className = 'forecast-day-tooltip';
+            forecastDayTooltip.setAttribute('role', 'tooltip');
+            document.body.appendChild(forecastDayTooltip);
+        }
+        return forecastDayTooltip;
+    }
+
+    function hideForecastDayTooltip() {
+        if (forecastDayTooltip) {
+            forecastDayTooltip.classList.remove('show');
+        }
+    }
+
+    function showForecastDayTooltip(button, event) {
+        const tip = ensureForecastDayTooltip();
+        const dateLabel = button.dataset.dateLabel || '';
+        const cycleLabel = button.dataset.cycleLabel || '';
+        const phaseLabel = button.dataset.phaseLabel || '';
+        const phaseScore = button.dataset.phaseScore || '';
+        const conceiveScore = button.dataset.conceiveScore || '';
+        const conceiveLabel = button.dataset.conceiveLabel || '';
+        const intimacyTip = button.dataset.intimacyTip || '';
+        const tipType = button.dataset.tipType || 'neutral';
+        const logged = button.dataset.logged === '1';
+
+        tip.innerHTML = `
+            <div class="forecast-day-tooltip-title">${dateLabel}</div>
+            <div class="forecast-day-tooltip-meta">${cycleLabel}</div>
+            <div class="forecast-day-tooltip-grid">
+                <div><span>Cycle phase</span><strong>${phaseLabel}</strong></div>
+                <div><span>Phase focus score</span><strong>${phaseScore}%</strong></div>
+                <div><span>Pregnancy likelihood</span><strong>${conceiveLabel} (${conceiveScore}%)</strong></div>
+            </div>
+            ${logged ? '<div class="forecast-day-tooltip-logged"><i class="fas fa-heart"></i> Intimacy logged on this day</div>' : ''}
+            <div class="forecast-day-tooltip-tip forecast-day-tooltip-tip-${tipType}">${intimacyTip}</div>
+        `;
+        tip.classList.add('show');
+
+        const rect = button.getBoundingClientRect();
+        const tipRect = tip.getBoundingClientRect();
+        let left = rect.left + rect.width / 2 - tip.offsetWidth / 2;
+        let top = rect.top - tip.offsetHeight - 10;
+        if (top < 8) top = rect.bottom + 10;
+        left = Math.max(8, Math.min(left, window.innerWidth - tip.offsetWidth - 8));
+        tip.style.left = `${left}px`;
+        tip.style.top = `${top}px`;
+    }
+
+    function bindCalendarTooltipEvents(container) {
+        if (!container || container.dataset.tooltipBound === '1') return;
+        container.dataset.tooltipBound = '1';
+        container.addEventListener('mouseover', (event) => {
+            const button = event.target.closest('.forecast-day');
+            if (!button || !container.contains(button)) return;
+            showForecastDayTooltip(button, event);
+        });
+        container.addEventListener('mouseleave', hideForecastDayTooltip);
+        container.addEventListener('focusin', (event) => {
+            const button = event.target.closest('.forecast-day');
+            if (button) showForecastDayTooltip(button, event);
+        });
+        container.addEventListener('focusout', hideForecastDayTooltip);
+    }
+
+    function renderGuideList(listId, days, emptyText) {
+        const list = document.getElementById(listId);
+        if (!list) return;
+        if (!days.length) {
+            list.innerHTML = `<li class="forecast-guide-empty">${emptyText}</li>`;
+            return;
+        }
+        list.innerHTML = days.map(day => {
+            const badge = day.is_today
+                ? '<span class="badge bg-primary ms-1">Today</span>'
+                : day.is_future
+                    ? '<span class="badge bg-warning text-dark ms-1">Predicted</span>'
+                    : '<span class="badge bg-secondary ms-1">Upcoming</span>';
+            return `<li>
+                <strong>${formatDate(day.date)}</strong> · Day ${day.day}
+                ${badge}
+                <small class="d-block text-muted">${day.conceiveScore}% pregnancy likelihood · ${getConceptionLikelihoodLabel(day.conceiveScore)}</small>
+            </li>`;
+        }).join('');
+    }
+
+    function updateIntimacyGuide() {
+        const upcomingDays = [...currentDaysOnly, ...nextDays]
+            .filter(day => day.is_today || day.is_future)
+            .map(day => ({
+                ...day,
+                conceiveScore: fertilityScore(day.day)
+            }));
+
+        const tryForBaby = upcomingDays
+            .filter(day => day.conceiveScore >= 65)
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .slice(0, 8);
+
+        const lowerRisk = upcomingDays
+            .filter(day => day.conceiveScore <= 30)
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .slice(0, 8);
+
+        renderGuideList(
+            'tryForBabyList',
+            tryForBaby,
+            'No high-likelihood conception days ahead in this forecast window.'
+        );
+        renderGuideList(
+            'lowerRiskList',
+            lowerRisk,
+            'No clearly lower-likelihood days ahead — check period or late-cycle days.'
+        );
+
+        const peakDay = upcomingDays.reduce((best, day) => (
+            !best || day.conceiveScore > best.conceiveScore ? day : best
+        ), null);
+        setForecastText(
+            'tryForBabySummary',
+            peakDay
+                ? `Peak window: ${formatDate(peakDay.date)} (Day ${peakDay.day}, ${peakDay.conceiveScore}% likelihood)`
+                : 'Peak window not available yet.'
+        );
+    }
+
+    function renderPhaseCalendar(containerId, days, modeName = 'menstruation') {
+        const container = document.getElementById(containerId);
+        if (!container || !Array.isArray(days) || days.length === 0) return;
+        const mode = forecastModes[modeName] || forecastModes.menstruation;
+        container.innerHTML = days.map(day => {
+            const meta = phaseMeta(day.phase);
+            const score = mode.score(day.day);
+            const conceiveScore = fertilityScore(day.day);
+            const tip = getIntimacyTip(conceiveScore);
+            const markerClass = day.is_today ? 'is-today' : day.is_future ? 'is-future' : 'is-past';
+            const fertilityClass = conceiveScore >= 65
+                ? 'forecast-day-baby-friendly'
+                : conceiveScore <= 30
+                    ? 'forecast-day-lower-risk'
+                    : '';
+            const hasSex = sexEntryDates.has(day.date);
+            const sexIndicator = hasSex
+                ? '<span class="forecast-sex-dot"><i class="fas fa-heart"></i></span>'
+                : '';
+            const cycleLabel = day.cycle === 'next'
+                ? 'Next cycle'
+                : day.cycle === 'previous'
+                    ? 'Previous cycle'
+                    : 'Current cycle';
+
+            return `
+                <button type="button"
+                    class="forecast-day ${markerClass} ${fertilityClass}"
+                    style="--phase:${mode.color};"
+                    data-date-label="${formatDate(day.date)}"
+                    data-cycle-label="${cycleLabel} · Day ${day.day}"
+                    data-phase-label="${meta.label}"
+                    data-phase-score="${score}"
+                    data-conceive-score="${conceiveScore}"
+                    data-conceive-label="${getConceptionLikelihoodLabel(conceiveScore)}"
+                    data-intimacy-tip="${tip.text}"
+                    data-tip-type="${tip.type}"
+                    data-logged="${hasSex ? '1' : '0'}"
+                    aria-label="${formatDate(day.date)}, day ${day.day}, ${getConceptionLikelihoodLabel(conceiveScore)} pregnancy likelihood">
+                    <span class="forecast-day-number">${day.day}</span>
+                    <span class="forecast-day-risk">${score}%</span>
+                    ${sexIndicator}
+                </button>
+            `;
+        }).join('');
+        bindCalendarTooltipEvents(container);
+    }
+
+    const DEFAULT_FORECAST_MODE = 'menstruation';
+    const timeline = cycleData.timeline || [];
+    const previousDays = timeline.filter(day => day.cycle === 'previous');
+    const currentDaysOnly = timeline.filter(day => day.cycle === 'current');
+    const nextDays = timeline.filter(day => day.cycle === 'next');
+    const currentDays = timeline.filter(day => day.cycle === 'current');
+    const sexEntryDates = new Set((cycleData.recent_sex_entries || []).map(entry => entry.date).filter(Boolean));
+    const forecastModeSelect = document.getElementById('forecast_mode');
+    const probabilityCanvas = document.getElementById('fertilityProbabilityChart');
+    let probabilityChart = null;
+    let cycleTrendsChart = null;
+
+    function setForecastText(id, text) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    }
+
+    function getTodayTimelineDay() {
+        if (!currentDaysOnly.length) return null;
+        return currentDaysOnly.find(day => day.is_today)
+            || currentDaysOnly.filter(day => !day.is_future).slice(-1)[0]
+            || currentDaysOnly[0];
+    }
+
+    function updateForecastFocus(modeName = DEFAULT_FORECAST_MODE) {
+        const mode = forecastModes[modeName] || forecastModes.menstruation;
+        const todayDay = getTodayTimelineDay();
+        const todayScore = todayDay ? mode.score(todayDay.day) : null;
+        const peakScore = currentDaysOnly.length
+            ? Math.max(...currentDaysOnly.map(day => mode.score(day.day)))
+            : null;
+        const avgScore = currentDaysOnly.length
+            ? Math.round(currentDaysOnly.reduce((sum, day) => sum + mode.score(day.day), 0) / currentDaysOnly.length)
+            : null;
+
+        const currentWindow = cycleData.current_cycle
+            ? calculatePhaseDates(modeName, cycleData.current_cycle.start_date)
+            : null;
+        const nextWindow = cycleData.next_cycle
+            ? calculatePhaseDates(modeName, cycleData.next_cycle.start_date)
+            : null;
+
+        setForecastText('forecastStatPhaseValue', mode.label);
+        setForecastText('forecastStatPhaseSubtext', todayScore !== null ? `${mode.datasetLabel}: ${todayScore}%` : 'No active cycle day');
+        applyWindowPresentation('Current', currentWindow);
+        applyWindowPresentation('Next', nextWindow);
+        setForecastText('forecastStatScoreValue', todayScore !== null ? `${todayScore}%` : '--');
+        setForecastText('forecastStatScoreSubtext', peakScore !== null ? `Peak this cycle: ${peakScore}%` : 'Peak this cycle: --');
+        setForecastText('forecastStatAvgScore', avgScore !== null ? `${avgScore}%` : '--');
+        setForecastText('forecastStatAvgScoreSubtext', `${mode.label} phase average this cycle`);
+
+        setForecastText('phaseExplorerSubtitle', `${mode.label} phase — timelines, scores, and charts update together.`);
+
+        renderPhaseCalendar('previousPhaseCalendar', previousDays, modeName);
+        renderPhaseCalendar('currentPhaseCalendar', currentDaysOnly, modeName);
+        renderPhaseCalendar('upcomingPhaseCalendar', nextDays, modeName);
+        renderProbabilityChart(modeName);
+
+        setForecastText('probabilityChartTitle', mode.chartTitle);
+
+        document.querySelectorAll('[data-phase-guide]').forEach(item => {
+            item.classList.toggle('forecast-phase-active', item.dataset.phaseGuide === modeName);
+        });
+
+        if (forecastModeSelect && forecastModeSelect.value !== modeName) {
+            forecastModeSelect.value = modeName;
+            window.syncCustomDropdown?.('forecast_mode');
+        }
+        hideForecastDayTooltip();
+    }
+    function renderProbabilityChart(modeName = DEFAULT_FORECAST_MODE) {
+        if (!window.Chart || !probabilityCanvas || currentDays.length === 0) return;
+        const mode = forecastModes[modeName] || forecastModes.menstruation;
+        const scores = currentDays.map(day => mode.score(day.day));
+        const sexMarkers = currentDays.map((day, index) => sexEntryDates.has(day.date) ? scores[index] : null);
+        const hasSexMarkers = sexMarkers.some(value => value !== null);
+        const trend = buildTrendDataset(`${mode.label} Trend`, scores, mode.trendColor);
+        const data = {
+            labels: currentDays.map(day => `Day ${day.day} (${formatShortDate(day.date)})`),
+            datasets: [{
+                label: mode.datasetLabel,
+                data: scores,
+                borderColor: mode.color,
+                backgroundColor: `${mode.color}29`,
+                borderWidth: 3,
+                tension: 0.35,
+                fill: true,
+                pointRadius: 4
+            }, ...(hasSexMarkers ? [{
+                label: 'Sex logged',
+                data: sexMarkers,
+                type: 'line',
+                showLine: false,
+                pointStyle: 'star',
+                pointRadius: 9,
+                pointHoverRadius: 12,
+                pointBackgroundColor: '#f5576c',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                borderColor: '#f5576c'
+            }] : []), ...(trend ? [trend] : [])]
+        };
+
+        if (probabilityChart) {
+            probabilityChart.data = data;
+            probabilityChart.options.plugins.title.text = mode.chartTitle;
+            probabilityChart.options.scales.y.title.text = mode.yTitle;
+            probabilityChart.update();
+            return;
+        }
+
+        probabilityChart = new Chart(probabilityCanvas, {
+            type: 'line',
+            data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: { display: true, text: mode.chartTitle },
+                    legend: { position: 'bottom', labels: { color: textColor } },
+                    tooltip: {
+                        callbacks: {
+                            title: function(context) {
+                                const index = context[0].dataIndex;
+                                const day = currentDays[index];
+                                return `${formatDate(day.date)} (Day ${day.day})`;
+                            },
+                            label: function(context) {
+                                const index = context.dataIndex;
+                                const day = currentDays[index];
+                                const score = context.raw;
+                                if (score === null || score === undefined) return '';
+                                const hasSex = sexEntryDates.has(day.date);
+                                const pregChance = getPregnancyChance(modeName, score);
+                                let label = `${context.dataset.label || ''}: ${score}%`;
+                                if (hasSex) {
+                                    label += ` | Intimacy Logged (${pregChance})`;
+                                } else {
+                                    label += ` (${pregChance})`;
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: chartScales(mode.yTitle, { beginAtZero: true, max: 100 })
+            }
+        });
+    }
+
+    if (!window.Chart) {
+        updateIntimacyGuide();
+        updateForecastFocus(forecastModeSelect?.value || DEFAULT_FORECAST_MODE);
+        return;
+    }
+    Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+    Chart.defaults.color = textColor;
+
+    const previousCycles = (cycleData.previous_cycles || []).slice().reverse();
+    const trendCanvas = document.getElementById('cycleTrendsChart');
+    if (trendCanvas && previousCycles.length > 0) {
+        const labels = previousCycles.map((cycle, index) => cycle.start_date_str || `Cycle ${index + 1}`);
+        const cycleLengths = previousCycles.map(cycle => Number(cycle.length) || 0);
+        const ovulationDays = previousCycles.map(cycle => Math.max(1, (Number(cycle.length) || 28) - 14));
+        const cycleLengthTrend = buildTrendDataset('Cycle Length Trend', cycleLengths, '#2f855a');
+        const ovulationTrend = buildTrendDataset('Ovulation Trend', ovulationDays, '#6f3a75');
+        cycleTrendsChart = new Chart(trendCanvas, {
             type: 'line',
             data: {
-                labels: cycleLabels,
+                labels,
                 datasets: [
                     {
-                        label: 'Cycle Length (Days)',
+                        label: 'Cycle Length',
                         data: cycleLengths,
                         borderColor: '#9f2f55',
                         backgroundColor: 'rgba(159, 47, 85, 0.12)',
-                        borderWidth: 2,
-                        tension: 0.1,
-                        fill: false
+                        borderWidth: 3,
+                        tension: 0.25,
+                        pointRadius: 4
                     },
                     {
-                        label: 'Ovulation Day',
+                        label: 'Estimated Ovulation Day',
                         data: ovulationDays,
-                        borderColor: '#fd7e14',
-                        backgroundColor: 'rgba(253, 126, 20, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.1,
-                        fill: false
-                    }
+                        borderColor: '#c05621',
+                        backgroundColor: 'rgba(192, 86, 33, 0.12)',
+                        borderWidth: 3,
+                        tension: 0.25,
+                        pointRadius: 4
+                    },
+                    ...(cycleLengthTrend ? [cycleLengthTrend] : []),
+                    ...(ovulationTrend ? [ovulationTrend] : [])
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: themedForecastLegend() },
-                scales: themedForecastScales({ beginAtZero: true })
+                plugins: {
+                    title: { display: true, text: 'Cycle Length & Ovulation Trend' },
+                    legend: { position: 'bottom', labels: { color: textColor } }
+                },
+                scales: chartScales('Days', { beginAtZero: true }, 'Cycle Start')
             }
         });
-    } else {
-        const trendsEl = document.getElementById('cycleTrendsChart');
-        if (trendsEl) {
-            trendsEl.parentElement.innerHTML = '<div class="text-center py-5 text-muted">Not enough cycle data for trend mapping.</div>';
-        }
+    } else if (trendCanvas) {
+        trendCanvas.parentElement.innerHTML = '<div class="text-center text-muted py-5">Add more completed cycles to see trends.</div>';
     }
 
-    // Parse current cycle timeline for probability curve
-    if (currentCycleData.length > 0) {
-        const labels = currentCycleData.map(d => `Day ${d.day}`);
-        const probabilities = currentCycleData.map(d => {
-            const day = d.day;
-            const pLen = cycleData.average_period_length || 5;
-            const actualOvulationDay = cycleData.average_ovulation_day || 14;
-            const cycleLength = cycleData.average_cycle_length || 28;
+    if (forecastModeSelect) {
+        forecastModeSelect.addEventListener('change', () => updateForecastFocus(forecastModeSelect.value));
+    }
+    updateIntimacyGuide();
+    updateForecastFocus(forecastModeSelect?.value || DEFAULT_FORECAST_MODE);
 
-            if (day <= pLen) return 30;
-            if (day < actualOvulationDay - 5) return 40;
-            if (day <= actualOvulationDay + 1) {
-                const distance = Math.abs(day - actualOvulationDay);
-                return Math.max(50, 100 - distance * 15);
-            }
-            if (day <= cycleLength) return 30;
-            return 20;
-        });
+    window.addEventListener('scroll', hideForecastDayTooltip, { passive: true });
 
-        const ctxProb = document.getElementById('fertilityProbabilityChart').getContext('2d');
-        new Chart(ctxProb, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Fertility Probability (%)',
-                    data: probabilities,
-                    borderColor: '#c05621',
-                    backgroundColor: 'rgba(192, 86, 33, 0.12)',
-                    borderWidth: 3,
-                    tension: 0.3,
-                    fill: true,
-                    pointRadius: 3
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: themedForecastLegend() },
-                scales: themedForecastScales({ beginAtZero: true, max: 100 })
-            }
-        });
-    } else {
-        const probEl = document.getElementById('fertilityProbabilityChart');
-        if (probEl) {
-            probEl.parentElement.innerHTML = '<div class="text-center py-5 text-muted">No ongoing cycle timeline.</div>';
-        }
+    if (probabilityCanvas && currentDays.length === 0) {
+        probabilityCanvas.parentElement.innerHTML = '<div class="text-center text-muted py-5">No current cycle timeline available.</div>';
     }
 });
 </script>
 <style>
-    .cycle-timeline-container {
-        padding: 15px;
+    .forecast-shell {
+        max-width: 1180px;
+        margin: 0 auto;
     }
 
-    .timeline-title {
-        text-align: center;
-        margin-bottom: 15px;
-        font-weight: bold;
+    .forecast-focus-bar {
+        border: 1px solid var(--border-color);
+        background: var(--metric-bg);
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+    }
+
+    .forecast-phase-active {
+        box-shadow: 0 0 0 2px var(--primary-color);
+        transform: scale(1.03);
+    }
+
+    [data-phase-guide] {
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .forecast-window-past {
+        border-left: 4px solid #6c757d !important;
+    }
+
+    .forecast-window-current {
+        border-left: 4px solid var(--primary-color) !important;
+    }
+
+    .forecast-window-predicted {
+        border-left: 4px solid #ffc107 !important;
+        border-style: dashed;
+    }
+
+    .forecast-static-card {
+        border-left: 4px solid var(--primary-color);
+    }
+
+    .forecast-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: center;
+    }
+
+    .forecast-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+    }
+
+    .forecast-detail {
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 0.9rem;
+        background: var(--card-bg);
+    }
+
+    .forecast-detail-label {
+        display: block;
+        color: var(--muted-color, #6c757d);
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-bottom: 0.25rem;
+    }
+
+    .forecast-detail-value {
+        font-size: 1rem;
+        font-weight: 700;
         color: var(--text-color);
     }
 
-    .cycle-timeline {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 3px;
-        justify-content: center;
-        padding: 10px;
-        background: var(--card-bg);
-        border-radius: 8px;
-        border: 1px solid var(--border-color);
+    .forecast-phase-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+        gap: 0.45rem;
     }
 
-    .timeline-day {
+    .forecast-day {
         position: relative;
+        min-height: 54px;
+        border: 1px solid color-mix(in srgb, var(--phase), transparent 30%);
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--phase), transparent 84%);
+        color: var(--text-color);
         display: flex;
         flex-direction: column;
         align-items: center;
-        cursor: pointer;
-        transition: transform 0.2s ease;
+        justify-content: center;
+        gap: 0.1rem;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
 
-    .timeline-day:hover {
-        transform: scale(1.15);
-        z-index: 10;
+    .forecast-day:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow);
     }
 
-    .day-line {
-        width: 22px;
-        height: 44px;
-        border-radius: 3px;
-        margin-bottom: 4px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    .forecast-day.is-today {
+        outline: 2px solid var(--phase);
+        outline-offset: 2px;
     }
 
-    .day-number {
-        font-size: 10px;
-        font-weight: bold;
+    .forecast-day.is-future {
+        border-style: dashed;
+    }
+
+    .forecast-day-number {
+        font-weight: 800;
+        font-size: 0.95rem;
+    }
+
+    .forecast-day-risk {
+        font-size: 0.72rem;
+        color: var(--muted-color, #6c757d);
+        font-weight: 700;
+    }
+
+    .forecast-sex-dot {
+        position: absolute;
+        bottom: 3px;
+        right: 4px;
+        color: #f5576c;
+        font-size: 0.65rem;
+    }
+
+    .forecast-day-baby-friendly {
+        box-shadow: inset 0 0 0 2px rgba(159, 47, 85, 0.45);
+    }
+
+    .forecast-day-lower-risk {
+        box-shadow: inset 0 0 0 2px rgba(47, 133, 90, 0.35);
+    }
+
+    .forecast-day-tooltip {
+        position: fixed;
+        z-index: 2200;
+        width: min(280px, calc(100vw - 24px));
+        padding: 0.85rem 0.95rem;
+        border-radius: 10px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 14px 32px rgba(0, 0, 0, 0.18);
+        color: var(--text-color);
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(4px);
+        transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+
+    .forecast-day-tooltip.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .forecast-day-tooltip-title {
+        font-weight: 800;
+        font-size: 0.95rem;
+        margin-bottom: 0.15rem;
+    }
+
+    .forecast-day-tooltip-meta {
+        font-size: 0.78rem;
+        color: var(--muted-color, #6c757d);
+        margin-bottom: 0.65rem;
+    }
+
+    .forecast-day-tooltip-grid {
+        display: grid;
+        gap: 0.45rem;
+        margin-bottom: 0.65rem;
+    }
+
+    .forecast-day-tooltip-grid div {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        font-size: 0.82rem;
+    }
+
+    .forecast-day-tooltip-grid span {
+        color: var(--muted-color, #6c757d);
+    }
+
+    .forecast-day-tooltip-logged {
+        font-size: 0.8rem;
+        color: #f5576c;
+        margin-bottom: 0.55rem;
+    }
+
+    .forecast-day-tooltip-tip {
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 0.45rem 0.55rem;
+        border-radius: 8px;
+    }
+
+    .forecast-day-tooltip-tip-conceive {
+        background: rgba(159, 47, 85, 0.12);
+        color: #9f2f55;
+    }
+
+    .forecast-day-tooltip-tip-safer {
+        background: rgba(47, 133, 90, 0.12);
+        color: #2f855a;
+    }
+
+    .forecast-day-tooltip-tip-neutral {
+        background: var(--metric-bg);
         color: var(--text-color);
     }
 
-    .day-number.actual-text {
-        color: #28a745;
+    .forecast-guide-card {
+        height: 100%;
+        border: 0;
+        box-shadow: var(--shadow);
     }
 
-    .timeline-day.predicted .day-line {
-        border-style: dashed;
-        border-width: 2px;
+    .forecast-guide-conceive {
+        border-left: 4px solid #9f2f55 !important;
     }
 
-    .timeline-day.calculated .day-line {
-        border: 1px solid rgba(108, 117, 125, 0.3);
+    .forecast-guide-safer {
+        border-left: 4px solid #2f855a !important;
     }
 
-    .timeline-day.actual .day-line {
-        border: 1px solid rgba(40, 167, 69, 0.3);
+    .forecast-guide-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 0.65rem;
     }
 
-    .timeline-tooltip {
-        position: fixed;
-        background: rgba(33, 37, 41, 0.98);
-        color: white;
-        padding: 10px;
+    .forecast-guide-list li {
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border-color);
         border-radius: 8px;
-        font-size: 12px;
-        z-index: 2000;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        max-width: 260px;
-        min-width: 180px;
+        background: var(--card-bg);
     }
 
-    .tooltip-header {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-        padding-bottom: 5px;
-        margin-bottom: 5px;
+    .forecast-guide-empty {
+        color: var(--muted-color, #6c757d);
+        font-size: 0.9rem;
+        padding: 0.5rem 0;
     }
 
-    .tooltip-phase {
-        font-weight: bold;
-        font-size: 13px;
-        color: #fd7e14;
+    .forecast-overview-grid > [class*="col-"] {
+        display: flex;
     }
 
-    .tooltip-intensity {
-        background: rgba(255, 255, 255, 0.1);
-        padding: 2px 6px;
-        border-radius: 3px;
+    .forecast-overview-grid .card {
+        width: 100%;
+    }
+
+    .forecast-legend-swatch {
         display: inline-block;
-        font-size: 11px;
-        margin-top: 4px;
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+        vertical-align: -2px;
+        margin-right: 0.35rem;
     }
 
-    .tooltip-safety {
-        font-weight: bold;
-        margin-top: 4px;
+    .forecast-legend-baby {
+        box-shadow: inset 0 0 0 2px rgba(159, 47, 85, 0.55);
+        background: rgba(159, 47, 85, 0.08);
     }
 
-    .tooltip-details {
-        color: #ccc;
-        font-style: italic;
-        font-size: 11px;
-        margin-top: 2px;
+    .forecast-legend-safer {
+        box-shadow: inset 0 0 0 2px rgba(47, 133, 90, 0.45);
+        background: rgba(47, 133, 90, 0.08);
     }
 
-    .tooltip-type {
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        padding-top: 4px;
-        margin-top: 6px;
-        text-align: center;
-    }
-
-    .color-guide {
+    .forecast-legend {
         display: flex;
         flex-wrap: wrap;
-        gap: 15px;
+        gap: 0.7rem;
         align-items: center;
-        justify-content: center;
+        margin-top: 1rem;
     }
 
-    .color-indicator {
+    .forecast-legend-item {
         display: inline-flex;
         align-items: center;
-        gap: 5px;
-        font-size: 12px;
+        gap: 0.35rem;
+        font-size: 0.82rem;
+        color: var(--text-color);
     }
 
-    .color-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
+    .forecast-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 999px;
         display: inline-block;
     }
 
-    .color-safe-period {
-        background-color: #b02a37;
+    .forecast-table td,
+    .forecast-table th {
+        vertical-align: middle;
     }
 
-    .color-building {
-        background-color: #d39e00;
-    }
+    @media (max-width: 768px) {
+        .forecast-detail-grid {
+            grid-template-columns: 1fr;
+        }
 
-    .color-fertility {
-        background-color: #d35400;
-    }
-
-    .color-safe-post {
-        background-color: #1e7e34;
-    }
-
-    .metric-card {
-        background-color: var(--card-bg);
-        border: 1px solid var(--border-color);
-        border-radius: 10px;
-        padding: 15px;
-        text-align: center;
-        box-shadow: var(--shadow);
+        .forecast-actions .btn {
+            flex: 1 1 100%;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        {% call components.card(title="Forecast & Fertility Intelligence", icon="fas fa-wand-magic-sparkles",
-        class="shadow-lg mb-4", header_class="bg-primary text-white") %}
-        {% if not cycle_data or not cycle_data.previous_cycles or cycle_data.previous_cycles|length == 0 %}
-        <div class="alert alert-info text-center py-5" role="alert">
-            <i class="fas fa-inbox fa-3x mb-3 text-muted"></i>
-            <h5><strong>Not Enough Tracking Data</strong></h5>
-            <p class="mb-3">We need at least two period records to predict future period starts and ovulation windows
-                accurately.</p>
+<div class="forecast-shell">
+    <div class="row mb-4">
+        <div class="col-12 text-center">
+            <h2 class="fw-bold mb-1"><i class="fas fa-wand-magic-sparkles text-primary me-2"></i>Forecast</h2>
+            <p class="text-muted mb-3">Cycle predictions, fertility probability, and recent health context in one view.</p>
         </div>
-        {% else %}
-
-        <!-- Expanded Fertility Metrics Dashboard -->
-        <div class="row g-3 mb-4">
-            <!-- Regularity Score Card -->
-            <div class="col-md-4 col-sm-6">
-                {{ components.stat_card(
-                title="Period Regularity",
-                value=cycle_data.cycle_regularity_score,
-                subtext="Window Consistency: " ~ cycle_data.fertility_window_consistency ~ "%",
-                icon="fas fa-calendar-check text-success"
-                ) }}
-            </div>
-            <!-- Predictions Confidence Card -->
-            <div class="col-md-4 col-sm-6">
-                {{ components.stat_card(
-                title="Prediction Confidence",
-                value=cycle_data.fertility_confidence_score,
-                unit="%",
-                subtext="Based on tracked cycles",
-                icon="fas fa-percentage text-info"
-                ) }}
-            </div>
-            <!-- Current Fertility Probability -->
-            <div class="col-md-4 col-sm-12">
-                {{ components.stat_card(
-                title="Fertility Chance Today",
-                value=cycle_data.fertility_probability,
-                unit="%",
-                subtext="Phase: " ~ cycle_data.current_cycle_phase,
-                icon="fas fa-heartbeat text-danger"
-                ) }}
-            </div>
-        </div>
-
-        <div class="row g-3 mb-4">
-            <div class="col-md-4 col-sm-6">
-                {{ components.stat_card(
-                title="Latest BMI",
-                value=cycle_data.latest_bmi if cycle_data.latest_bmi else 'N/A',
-                subtext=cycle_data.latest_bmi_category if cycle_data.latest_bmi_category else 'No body metric logged',
-                icon="fas fa-heart-pulse text-danger"
-                ) }}
-            </div>
-            <div class="col-md-4 col-sm-6">
-                {{ components.stat_card(
-                title="Recent Sex Entries",
-                value=cycle_data.recent_sex_count,
-                subtext="Used as forecast context",
-                icon="fas fa-heart text-danger"
-                ) }}
-            </div>
-            <div class="col-md-4 col-sm-12">
-                {{ components.stat_card(
-                title="Predicted vs Actual",
-                value="Tracking",
-                subtext=cycle_data.predicted_vs_actual_note,
-                icon="fas fa-scale-balanced text-warning"
-                ) }}
-            </div>
-        </div>
-        <!-- Stats summary section -->
-        <div class="card mb-4 soft-panel border-0">
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-4 col-6">
-                        <small class="text-muted d-block">Average Period Interval</small>
-                        <strong>{{ cycle_data.average_cycle_length }} Days</strong>
-                    </div>
-                    <div class="col-md-4 col-6">
-                        <small class="text-muted d-block">Average Period Duration</small>
-                        <strong>{{ cycle_data.average_period_length }} Days</strong>
-                    </div>
-                    <div class="col-md-4 col-12">
-                        <small class="text-muted d-block">Predicted Ovulation</small>
-                        <strong>{{ cycle_data.predicted_ovulation_date_str }}</strong>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Previous Cycle Timeline -->
-        {% if cycle_data.previous_cycles %}
-        <div class="col-12 mb-4">
-            <div class="card shadow">
-                <div class="card-body p-0">
-                    <div id="prevCycleTimeline" class="timeline-container"></div>
-                </div>
-                <div class="card-footer bg-white border-top-0">
-                    <div class="color-guide">
-                        <span class="color-indicator"><span class="color-dot color-safe-period"></span> Safe Sex
-                            (Period)</span>
-                        <span class="color-indicator"><span class="color-dot color-building"></span> Building
-                            Phase</span>
-                        <span class="color-indicator"><span class="color-dot color-fertility"></span> Fertility
-                            Peak</span>
-                        <span class="color-indicator"><span class="color-dot color-safe-post"></span> Safe Sex
-                            (Post-Ov)</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Current Timeline -->
-        <div class="col-12 mb-4">
-            <div class="card shadow">
-                <div class="card-body p-0">
-                    <div id="currentCycleTimeline" class="timeline-container"></div>
-                </div>
-                <div class="card-footer bg-white border-top-0">
-                    <div class="color-guide">
-                        <span class="color-indicator"><span class="color-dot color-safe-period"></span> Safe Sex
-                            (Period)</span>
-                        <span class="color-indicator"><span class="color-dot color-building"></span> Building
-                            Phase</span>
-                        <span class="color-indicator"><span class="color-dot color-fertility"></span> Fertility
-                            Peak</span>
-                        <span class="color-indicator"><span class="color-dot color-safe-post"></span> Safe Sex
-                            (Post-Ov)</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Fertility Analytics Graphs -->
-        <div class="row g-4 mt-4">
-            <div class="col-lg-6 col-md-12">
-                {% call components.card(title="Period Interval & Ovulation Trend", icon="fas fa-chart-line
-                text-primary", class="shadow h-100", header_class="bg-white text-dark border-0 pb-0") %}
-                <div class="chart-container" style="height: 250px; position: relative;">
-                    <canvas id="cycleTrendsChart"></canvas>
-                </div>
-                {% endcall %}
-            </div>
-            <div class="col-lg-6 col-md-12">
-                {% call components.card(title="Fertility Probability Curve (Current Period)", icon="fas fa-heartbeat
-                text-danger", class="shadow h-100", header_class="bg-white text-dark border-0 pb-0") %}
-                <div class="chart-container" style="height: 250px; position: relative;">
-                    <canvas id="fertilityProbabilityChart"></canvas>
-                </div>
-                {% endcall %}
-            </div>
-        </div>
-
-        {% endif %}
-        {% endcall %}
     </div>
+
+    {% if not cycle_data or not cycle_data.previous_cycles or cycle_data.previous_cycles|length == 0 %}
+    <div class="row">
+        <div class="col-12">
+            {% call components.card(title="More Data Needed", icon="fas fa-circle-info text-primary", class="shadow-sm border-0") %}
+            <div class="text-center py-4">
+                <h5 class="fw-bold">Add at least two marked period starts</h5>
+                <p class="text-muted mb-3">Forecasts become useful once the app can compare completed cycles.</p>
+                {{ components.btn(text="Add Period Entry", variant="primary", href="/input", icon="fas fa-plus") }}
+            </div>
+            {% endcall %}
+        </div>
+    </div>
+    {% else %}
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="forecast-focus-bar shadow-sm">
+                <div class="row align-items-end g-3">
+                    <div class="col-lg-8">
+                        <p class="text-muted small mb-1">Updates phase scores, calendars, and the forecast chart. Typical Cycle Length and Cycle Trend stay fixed.</p>
+                        <h5 class="fw-bold mb-0"><i class="fas fa-sliders-h text-primary me-2"></i>Cycle Phase Focus</h5>
+                    </div>
+                    <div class="col-lg-4">
+                        {{ components.dropdown(name="forecast_mode", label="", options=[("menstruation", "Period Phase"), ("follicular", "Building Phase"), ("ovulation", "Fertile Phase"), ("luteal", "Luteal Phase")], selected_value="menstruation", id="forecast_mode", container_class="mb-0") }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOX 1: Cycle & Period Overview -->
+    <div class="row mb-4" id="box-cycle-period">
+        <div class="col-12">
+            <div class="p-4 rounded-4 border border-1 bg-body-tertiary shadow-sm">
+                <h4 class="fw-bold mb-3 text-primary"><i class="fas fa-circle-nodes me-2"></i>Cycle & Period Overview</h4>
+                
+                <div class="row g-3 mb-0 forecast-overview-grid">
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-sm border-0 soft-panel forecast-static-card">
+                            <div class="card-body p-3 d-flex flex-column">
+                                <span class="text-muted text-uppercase fw-bold small d-block mb-2">Typical Cycle Length</span>
+                                <h3 class="mb-0 fw-bold">{{ cycle_data.average_cycle_length }} <span class="fs-6 text-muted">days</span></h3>
+                                <small class="text-muted d-block mt-2 mb-3">Average gap between marked period starts</small>
+                                {% if cycle_data.current_cycle %}
+                                <div class="mt-auto pt-2 border-top">
+                                    <span class="text-muted text-uppercase fw-bold small d-block mb-1">Current Cycle Range</span>
+                                    <strong class="fs-6">{{ cycle_data.current_cycle.start_date_str }} – {{ cycle_data.current_cycle.predicted_end | format_date }}</strong>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-sm border-0">
+                            <div class="card-body p-3">
+                                <span class="text-muted text-uppercase fw-bold small d-block mb-2">Selected Phase</span>
+                                <h3 class="mb-0 fw-bold" id="forecastStatPhaseValue">Period</h3>
+                                <small class="text-muted d-block mt-2" id="forecastStatPhaseSubtext">Menstruation Probability: --</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-sm border-0" id="forecastStatCurrentWindowCard">
+                            <div class="card-body p-3 d-flex flex-column">
+                                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                    <span class="text-muted text-uppercase fw-bold small">Current Phase Window</span>
+                                    <span class="badge bg-secondary" id="forecastStatCurrentWindowBadge">From your data</span>
+                                </div>
+                                <h3 class="mb-0 fw-bold fs-6" id="forecastStatCurrentWindow">--</h3>
+                                <small class="text-muted d-block mt-2 mb-3" id="forecastStatCurrentWindowHint">This cycle date range</small>
+                                <div class="mt-auto pt-2 border-top">
+                                    <span class="text-muted text-uppercase fw-bold small d-block mb-1">Avg Period Length</span>
+                                    <strong class="fs-5">{{ cycle_data.average_period_length }} days</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-sm border-0">
+                            <div class="card-body p-3">
+                                <span class="text-muted text-uppercase fw-bold small d-block mb-2">Today's Phase Score</span>
+                                <h3 class="mb-0 fw-bold" id="forecastStatScoreValue">--</h3>
+                                <small class="text-muted d-block mt-2" id="forecastStatScoreSubtext">Peak this cycle: --</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-sm border-0" id="forecastStatNextWindowCard">
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                    <span class="text-muted text-uppercase fw-bold small">Next Phase Window</span>
+                                    <span class="badge bg-warning text-dark" id="forecastStatNextWindowBadge">Predicted</span>
+                                </div>
+                                <h3 class="mb-0 fw-bold fs-6" id="forecastStatNextWindow">--</h3>
+                                <small class="text-muted d-block mt-2" id="forecastStatNextWindowHint">Upcoming cycle date range</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-sm border-0">
+                            <div class="card-body p-3">
+                                <span class="text-muted text-uppercase fw-bold small d-block mb-2">Avg Phase Score</span>
+                                <h3 class="mb-0 fw-bold" id="forecastStatAvgScore">--</h3>
+                                <small class="text-muted d-block mt-2" id="forecastStatAvgScoreSubtext">Current cycle average</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3 mt-1">
+                    <div class="col-12">
+                        <h5 class="fw-bold mb-0 mt-2"><i class="fas fa-heart-pulse text-danger me-2"></i>Intimacy & Conception Guide</h5>
+                        <p class="text-muted small mb-3">Based on your cycle averages — independent of the phase dropdown above. Hover calendar days for day-by-day details.</p>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card forecast-guide-card forecast-guide-conceive h-100">
+                            <div class="card-body p-3">
+                                <h6 class="fw-bold mb-1"><i class="fas fa-baby text-danger me-2"></i>Best Days to Try for a Baby</h6>
+                                <p class="text-muted small mb-2">Highest estimated pregnancy likelihood in this and your next cycle. For planning only — not medical advice.</p>
+                                <p class="small fw-semibold mb-2" id="tryForBabySummary">Peak window loading...</p>
+                                <ul class="forecast-guide-list" id="tryForBabyList"></ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card forecast-guide-card forecast-guide-safer h-100">
+                            <div class="card-body p-3">
+                                <h6 class="fw-bold mb-1"><i class="fas fa-shield-alt text-success me-2"></i>Lower-Risk Intimacy Days</h6>
+                                <p class="text-muted small mb-2">When pregnancy is estimated to be least likely. Still use protection if you want to avoid conceiving.</p>
+                                <ul class="forecast-guide-list" id="lowerRiskList"></ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="d-flex flex-wrap gap-3 small text-muted pt-1">
+                            <span><span class="forecast-legend-swatch forecast-legend-baby"></span> High conception likelihood (calendar highlight)</span>
+                            <span><span class="forecast-legend-swatch forecast-legend-safer"></span> Lower pregnancy likelihood (calendar highlight)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOX 2: Interactive Phase Explorer -->
+    <div class="row mb-4" id="box-phase-explorer">
+        <div class="col-12">
+            <div class="p-4 rounded-4 border border-1 bg-body-tertiary shadow-sm">
+                <div class="mb-4">
+                    <h4 class="fw-bold mb-1 text-primary"><i class="fas fa-wand-magic-sparkles me-2"></i>Interactive Phase Explorer</h4>
+                    <p class="text-muted small mb-0" id="phaseExplorerSubtitle">Period phase — timelines, scores, and charts update together.</p>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        {% call components.card(title="Phase Forecast & Logged Events", icon="fas fa-chart-line text-danger", class="shadow-sm border-0 h-100", id="probability_chart_card") %}
+                        <h6 class="fw-bold mb-3" id="probabilityChartTitle">Period Phase Forecast</h6>
+                        <div class="chart-container" style="height: 280px; position: relative;">
+                            <canvas id="fertilityProbabilityChart"></canvas>
+                        </div>
+                        {% endcall %}
+                    </div>
+                </div>
+
+                <!-- Phase Guide Separate Box -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        {% call components.card(title="Phase Guide & Legends", icon="fas fa-circle-info text-primary", class="shadow-sm border-0") %}
+                        <div class="d-flex justify-content-around align-items-center flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3 border bg-body" data-phase-guide="menstruation" style="border-left: 5px solid #b02a37 !important;">
+                                <span class="forecast-dot" style="background:#b02a37"></span>
+                                <span class="fw-bold small">Period</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3 border bg-body" data-phase-guide="follicular" style="border-left: 5px solid #c05621 !important;">
+                                <span class="forecast-dot" style="background:#c05621"></span>
+                                <span class="fw-bold small">Building</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3 border bg-body" data-phase-guide="ovulation" style="border-left: 5px solid #9f2f55 !important;">
+                                <span class="forecast-dot" style="background:#9f2f55"></span>
+                                <span class="fw-bold small">Fertile</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3 border bg-body" data-phase-guide="luteal" style="border-left: 5px solid #2f855a !important;">
+                                <span class="forecast-dot" style="background:#2f855a"></span>
+                                <span class="fw-bold small">Luteal</span>
+                            </div>
+                        </div>
+                        {% endcall %}
+                    </div>
+                </div>
+
+                <!-- Calendars -->
+                <div class="row g-4">
+                    {% if cycle_data.current_cycle and cycle_data.current_cycle.is_current %}
+                    <div class="col-12" id="current_cycle_wrapper">
+                        {% call components.card(title="Current Cycle", icon="fas fa-calendar-day text-primary", class="shadow-sm border-0") %}
+                        <div id="currentPhaseCalendar" class="forecast-phase-grid"></div>
+                        {% endcall %}
+                    </div>
+                    {% endif %}
+                    <div class="col-12">
+                        {% call components.card(title="Upcoming Cycle", icon="fas fa-calendar-plus text-primary", class="shadow-sm border-0") %}
+                        <div id="upcomingPhaseCalendar" class="forecast-phase-grid"></div>
+                        {% endcall %}
+                    </div>
+                    <div class="col-12">
+                        {% call components.card(title="Previous Cycle", icon="fas fa-clock-rotate-left text-secondary", class="shadow-sm border-0") %}
+                        <div id="previousPhaseCalendar" class="forecast-phase-grid"></div>
+                        {% endcall %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Section: History and Trends -->
+    <div class="row g-4 mb-4">
+        <!-- Cycle Trend Chart -->
+        <div class="col-12">
+            {% call components.card(title="Cycle Trend", icon="fas fa-chart-line text-primary", class="shadow-sm border-0") %}
+            <div class="chart-container" style="height: 320px; position: relative;">
+                <canvas id="cycleTrendsChart"></canvas>
+            </div>
+            {% endcall %}
+        </div>
+    </div>
+
+    {% endif %}
 </div>
 {% endblock %}
-
-

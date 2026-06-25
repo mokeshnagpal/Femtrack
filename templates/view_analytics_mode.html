@@ -1,39 +1,26 @@
 {% extends "base.html" %}
+{% import "macros.html" as components %}
 
-{% block title %}View Analytics - Menstrual Tracker{% endblock %}
+{% block title %}View Analytics - Femtrack{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-6 col-lg-4">
-        <div class="card shadow">
-            <div class="card-header bg-info text-white text-center">
-                <h4><i class="fas fa-chart-line"></i> View Analytics</h4>
-            </div>
-            <div class="card-body">
-                <p class="text-center text-muted mb-4">
-                    <small>Enter the view password to access analytics</small>
-                </p>
-                <form method="POST">
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Analytics Password</label>
-                        <input type="password" class="form-control form-control-lg text-center" 
-                               id="password" name="password" placeholder="Enter password" required 
-                               autocomplete="off">
-                    </div>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-info btn-lg">
-                            <i class="fas fa-eye"></i> View Analytics
-                        </button>
-                    </div>
-                </form>
-                <hr>
-                <div class="text-center">
-                    <a href="/login" class="btn btn-outline-primary btn-sm">
-                        <i class="fas fa-arrow-left"></i> Back to Login
-                    </a>
+        {% call components.card(title="View Analytics", icon="fas fa-chart-line", header_class="bg-info text-white text-center") %}
+            <p class="text-center text-muted mb-4">
+                <small>Enter the view password to access analytics</small>
+            </p>
+            <form method="POST">
+                {{ components.input_box(name="password", label="Analytics Password", type="password", required=True, placeholder="Enter password", id="password", class="mb-3 text-center") }}
+                <div class="d-grid">
+                    {{ components.btn(text="View Analytics", type="submit", variant="info", class="btn-lg", icon="fas fa-eye") }}
                 </div>
+            </form>
+            <hr>
+            <div class="text-center">
+                {{ components.btn(text="Back to Login", variant="primary", outline=True, class="btn-sm", icon="fas fa-arrow-left", href="/login") }}
             </div>
-        </div>
+        {% endcall %}
     </div>
 </div>
 {% endblock %}

@@ -6,11 +6,11 @@ from utils.email_service import send_otp
 from utils.otp import generate_otp, validate_otp
 from utils.date_helpers import format_date_readable, parse_entry_date, sort_entries_by_date, normalize_entry_for_charts
 from utils.firestore_service import (
-    get_user_settings, update_user_settings, get_period_entries, 
+    get_user_settings, update_user_settings, get_period_entries,
     get_weight_height_entries, get_latest_weight_height, get_sex_entries, get_latest_sex_entries
 )
 from utils.biometrics import (
-    calculate_bmi, get_bmi_category, get_weight_analytics, 
+    calculate_bmi, get_bmi_category, get_weight_analytics,
     get_height_analytics, get_bmi_analytics
 )
 from utils.fertility import calculate_fertility_analytics
@@ -34,6 +34,15 @@ app = Flask(
 )
 app.secret_key = os.getenv('SECRET_KEY', 'default_secret_key')
 
+# Permanent session settings (Infinite sessions)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=3650) # 10 years
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True
+
+@app.before_request
+def make_session_permanent():
+    session.permanent = True
+
+
 # Register Jinja2 filter for cycle phase colors
 def get_day_color(phase, is_past=False, is_predicted=False):
     """Return color for a given cycle phase"""
@@ -43,10 +52,10 @@ def get_day_color(phase, is_past=False, is_predicted=False):
         'ovulation': {'current': '#ffc107', 'past': '#fff3cd'},
         'luteal': {'current': '#198754', 'past': '#d1e7dd'}
     }
-    
+
     if is_predicted:
         return colors.get(phase, {}).get('past', '#e9ecef')
-    
+
     return colors.get(phase, {}).get('past' if is_past else 'current', '#e9ecef')
 
 app.jinja_env.filters['get_day_color'] = get_day_color
@@ -77,8 +86,39 @@ def build_sex_options(user_data):
     positions = list(dict.fromkeys(DEFAULT_SEX_POSITIONS + custom_positions))
     return sex_types, positions
 
+SYMPTOM_DEFAULT_KEYS = {
+    'weird': 'weird_intensity',
+    'craving': 'craving_intensity',
+    'irritation': 'irritation_intensity',
+    'diarrhea': 'diarrhea_intensity',
+}
+
+
+def sanitize_user_defaults(user_data):
+    """Clear saved defaults that no longer match available options."""
+    user_data = user_data or {}
+    defaults = dict(user_data.get('defaults') or {})
+    changed = False
+    sex_types, sex_positions = build_sex_options(user_data)
+
+    if defaults.get('sex_type') and defaults['sex_type'] not in sex_types:
+        defaults['sex_type'] = ''
+        changed = True
+    if defaults.get('position') and defaults['position'] not in sex_positions:
+        defaults['position'] = ''
+        changed = True
+
+    for symptom_name, default_key in SYMPTOM_DEFAULT_KEYS.items():
+        if symptom_name in user_data.get('disabled_symptoms', []) and defaults.get(default_key):
+            defaults[default_key] = ''
+            changed = True
+
+    return defaults, changed
+
 VALID_ANALYTICS_GROUPS = {'daily', 'weekly', 'monthly', 'yearly'}
 VALID_ANALYTICS_LIMITS = {'all', '1', '5', '10', '20', '50'}
+VALID_CYCLE_HISTORY_LIMITS = {'1', '3', '5', '10', '20', '50', 'all'}
+VALID_SEX_RECENT_LIMITS = {'1', '3', '5', '10', '20', '50', 'all'}
 
 
 def get_analytics_filter_options():
@@ -94,6 +134,26 @@ def get_analytics_filter_options():
         'limit_count': None if limit == 'all' else int(limit)
     }
 
+
+
+def get_cycle_history_limit_options():
+    cycle_limit = request.args.get('cycle_limit', '3').strip().lower()
+    if cycle_limit not in VALID_CYCLE_HISTORY_LIMITS:
+        cycle_limit = '3'
+    return {
+        'cycle_limit': cycle_limit,
+        'cycle_limit_count': None if cycle_limit == 'all' else int(cycle_limit)
+    }
+
+
+def get_sex_recent_limit_options():
+    sex_limit = request.args.get('sex_limit', '3').strip().lower()
+    if sex_limit not in VALID_SEX_RECENT_LIMITS:
+        sex_limit = '3'
+    return {
+        'sex_limit': sex_limit,
+        'sex_limit_count': None if sex_limit == 'all' else int(sex_limit)
+    }
 
 def safe_entry_date(entry):
     return parse_entry_date(entry.get('date', ''))
@@ -276,15 +336,16 @@ def build_weight_height_summary(entries):
     }
 
 
-def build_sex_summary(entries):
+def build_sex_summary(entries, recent_limit=3):
     entries = sorted(entries, key=lambda e: date_obj_to_sort_key(safe_entry_date(e)), reverse=True)
+    recent_entries = entries if recent_limit is None else entries[:recent_limit]
     sex_type_counts = Counter(e.get('sex_type') for e in entries if e.get('sex_type'))
     sex_position_counts = Counter(e.get('position') for e in entries if e.get('position'))
     most_common_type = sex_type_counts.most_common(1)[0] if sex_type_counts else ('Not set', 0)
     most_common_position = sex_position_counts.most_common(1)[0] if sex_position_counts else ('Not set', 0)
     return {
         'total': len(entries),
-        'recent': entries[:3],
+        'recent': recent_entries,
         'most_common_type': most_common_type[0],
         'most_common_type_count': most_common_type[1],
         'most_common_position': most_common_position[0],
@@ -294,10 +355,9 @@ def build_sex_summary(entries):
     }
 
 
-def build_cycle_history_rows(fertility_data, filters):
+def build_cycle_history_rows(fertility_data, filters, limit_count=None):
     cycles = fertility_data.get('previous_cycles') or []
     group_by = filters.get('group_by', 'daily')
-    limit_count = filters.get('limit_count')
     if group_by == 'daily':
         return cycles if limit_count is None else cycles[:limit_count]
 
@@ -471,7 +531,7 @@ def reset_password():
 @app.route('/input', methods=['GET', 'POST'])
 @login_required
 def input_page():
-    
+
     if request.method == 'POST':
         try:
             # Get date and validate
@@ -479,10 +539,10 @@ def input_page():
             if not entry_date:
                 flash('Date is required')
                 return redirect('/input')
-            
+
             # Get symptoms
             symptoms = request.form.getlist('symptoms') or []
-            
+
             # Prepare base data
             data = {
                 "user_id": session['user'],
@@ -491,34 +551,34 @@ def input_page():
                 "notes": request.form.get('notes', ''),
                 "updated_at": datetime.now()
             }
-            
+
             # Check if this is an edit (entry_id provided)
             entry_id = request.form.get('entry_id', '')
             if not entry_id:
                 # New entry - add created_at
                 data["created_at"] = datetime.now()
-            
+
             # Process Period symptom if selected
             has_period = 'period' in symptoms
             period_ended = request.form.get('period_ended') == 'on'
-            
+
             if has_period or period_ended:
                 period_data = {
                     "name": "period"
                 }
-                
+
                 if has_period:
                     flow_amount = request.form.get('flow_amount', '')
                     period_data["flow_amount"] = int(flow_amount) if flow_amount else None
                     period_data["start_marked"] = request.form.get('periodStart') == 'on'
                     period_data["start_time"] = request.form.get('start_time', '') or None
-                    
+
                 if period_ended:
                     period_data["end_marked"] = True
                     period_data["end_time"] = request.form.get('end_time', '') or None
-                
+
                 data["symptoms"].append(period_data)
-            
+
             # Process Feeling Weird symptom if selected
             if 'weird' in symptoms:
                 weird_intensity = request.form.get('weird_intensity', '')
@@ -526,7 +586,7 @@ def input_page():
                     "name": "weird",
                     "intensity": weird_intensity
                 })
-            
+
             # Process Craving symptom if selected
             if 'craving' in symptoms:
                 craving_intensity = request.form.get('craving_intensity', '')
@@ -534,7 +594,7 @@ def input_page():
                     "name": "craving",
                     "intensity": craving_intensity
                 })
-            
+
             # Process Irritation symptom if selected
             if 'irritation' in symptoms:
                 irritation_intensity = request.form.get('irritation_intensity', '')
@@ -542,14 +602,14 @@ def input_page():
                     "name": "irritation",
                     "intensity": irritation_intensity
                 })
-            
+
             # Process Diarrhea symptom if selected
             if 'diarrhea' in symptoms:
                 data["symptoms"].append({
                     "name": "diarrhea",
                     "intensity": None
                 })
-            
+
             # Store in Firestore
             if entry_id:
                 # Update existing entry
@@ -559,20 +619,20 @@ def input_page():
                 # Create new entry
                 db.collection('users').document(session['user']).collection('period_entries').add(data)
                 flash('Entry added successfully!')
-            
+
             return redirect('/entries')
-            
+
         except Exception as e:
             print(f"Error saving entry: {e}")
             flash('Error saving entry. Please try again.')
             return redirect('/input')
-    
+
     try:
         user_data = get_user_settings(session['user']) or {}
         user_defaults = user_data.get('defaults', {})
     except:
         user_defaults = {}
-    
+
     # Check if editing an entry
     entry_to_edit = None
     entry_id = request.args.get('entry_id', '')
@@ -585,7 +645,7 @@ def input_page():
         except Exception as e:
             print(f"Error fetching entry: {e}")
             flash('Error loading entry for editing')
-    
+
     return render_template('input.html', user_defaults=user_defaults, entry_to_edit=entry_to_edit)
 
 @app.route('/analytics')
@@ -594,6 +654,8 @@ def analytics():
     is_view_only = session.get('view_only', False)
     user_email = session.get('user') or session.get('view_only_email', '')
     filters = get_analytics_filter_options()
+    cycle_history_filter = get_cycle_history_limit_options()
+    sex_recent_filter = get_sex_recent_limit_options()
 
     try:
         entries = get_period_entries(user_email)
@@ -601,7 +663,7 @@ def analytics():
         sort_entries_by_date(filtered_entries, reverse=True)
 
         fertility_data = calculate_fertility_analytics(filtered_entries)
-        cycle_history_rows = build_cycle_history_rows(calculate_fertility_analytics(entries), filters)
+        cycle_history_rows = build_cycle_history_rows(fertility_data, filters, cycle_history_filter['cycle_limit_count'])
 
         weight_height_entries = get_weight_height_entries(user_email, sort_by='date', sort_order='asc')
         filtered_weight_height_entries = filter_entries_for_analytics(weight_height_entries, filters)
@@ -609,12 +671,14 @@ def analytics():
 
         sex_entries_data = get_sex_entries(user_email, sort_by='date', sort_order='desc')
         filtered_sex_entries = filter_entries_for_analytics(sex_entries_data, filters)
-        sex_summary = build_sex_summary(filtered_sex_entries)
+        sex_summary = build_sex_summary(filtered_sex_entries, sex_recent_filter['sex_limit_count'])
 
         return render_template('analytics.html',
                                fertility=fertility_data,
                                cycle_history_rows=cycle_history_rows,
                                analytics_filters=filters,
+                               cycle_history_filter=cycle_history_filter,
+                               sex_recent_filter=sex_recent_filter,
                                weight_height=wh_analytics,
                                sex_summary=sex_summary,
                                is_view_only=is_view_only)
@@ -627,21 +691,23 @@ def analytics():
 @auth_required
 def predictor():
     """Cycle predictor and fertility tracker"""
-    
+
     is_view_only = session.get('view_only', False)
     user_email = session.get('user') or session.get('view_only_email', '')
-    
+    cycle_history_filter = get_cycle_history_limit_options()
+    print(f"[{datetime.now().isoformat()}] INFO: User {user_email} (view_only={is_view_only}) requested predictor dashboard. Cycle limit filter: {cycle_history_filter['cycle_limit']}")
     try:
         # Fetch all entries for the user
         entries = get_period_entries(user_email)
-        
+
         # Sort entries by date descending
         sort_entries_by_date(entries, reverse=True)
-        
+
         # Calculate cycle data and supporting body/sex context
         cycle_data = calculate_fertility_analytics(entries)
+        cycle_history_rows = build_cycle_history_rows(cycle_data, {'group_by': 'daily'}, cycle_history_filter['cycle_limit_count'])
         latest_body_metric = get_latest_weight_height(user_email)
-        recent_sex_entries = get_latest_sex_entries(user_email, limit=5)
+        recent_sex_entries = get_latest_sex_entries(user_email, limit=100)
         cycle_data['latest_bmi'] = latest_body_metric.get('bmi') if latest_body_metric else None
         cycle_data['latest_bmi_category'] = latest_body_metric.get('bmi_category') if latest_body_metric else None
         cycle_data['recent_sex_count'] = len(recent_sex_entries)
@@ -650,8 +716,8 @@ def predictor():
             cycle_data['predicted_vs_actual_note'] = 'Predictions are compared against your completed period starts as more cycles are logged.'
         else:
             cycle_data['predicted_vs_actual_note'] = 'Add more period starts to compare predicted dates with actual tracked starts.'
-        
-        return render_template('predictor.html', cycle_data=cycle_data, is_view_only=is_view_only)
+
+        return render_template('predictor.html', cycle_data=cycle_data, cycle_history_rows=cycle_history_rows, cycle_history_filter=cycle_history_filter, is_view_only=is_view_only)
     except Exception as e:
         print(f"Error loading predictor: {e}")
         flash(f'Error loading predictor: {str(e)}')
@@ -662,33 +728,33 @@ def predictor():
 def weight_height_list():
     is_view_only = session.get('view_only', False)
     user_email = session.get('user') or session.get('view_only_email', '')
-    
+
     page = request.args.get('page', 1, type=int)
     if page < 1:
         page = 1
-        
+
     try:
         try:
             total_count = db.collection('users').document(user_email).collection('weight_height_entries').count().get()[0][0].value
         except Exception as e:
             print(f"Error using count() on weight_height: {e}")
             total_count = len([d for d in db.collection('users').document(user_email).collection('weight_height_entries').select([]).stream()])
-            
+
         limit = 12
         total_pages = math.ceil(total_count / limit)
         if total_pages < 1:
             total_pages = 1
         if page > total_pages:
             page = total_pages
-            
+
         offset_val = (page - 1) * limit
-        
+
         docs = db.collection('users').document(user_email).collection('weight_height_entries')\
                  .order_by('date', direction='DESCENDING')\
                  .limit(limit)\
                  .offset(offset_val)\
                  .stream()
-                 
+
         entries_list = []
         for doc in docs:
             entry = doc.to_dict()
@@ -698,7 +764,7 @@ def weight_height_list():
             if 'updated_at' in entry and entry['updated_at']:
                 entry['updated_at'] = entry['updated_at'].isoformat() if hasattr(entry['updated_at'], 'isoformat') else str(entry['updated_at'])
             entries_list.append(entry)
-            
+
         return render_template('weight_height_list.html',
                                entries=entries_list,
                                is_view_only=is_view_only,
@@ -713,23 +779,23 @@ def weight_height_list():
 @app.route('/weight-height/add', methods=['GET', 'POST'])
 @login_required
 def add_weight_height():
-        
+
     if request.method == 'POST':
         date = request.form.get('date')
         weight = request.form.get('weight')
         height = request.form.get('height')
-        
+
         if not date or not weight or not height:
             flash('Date, weight, and height are required.')
             return redirect('/weight-height/add')
-            
+
         try:
             weight = float(weight)
             height = float(height)
             if weight <= 0 or height <= 0:
                 flash('Weight and height must be positive values.')
                 return redirect('/weight-height/add')
-                
+
             # Check duplicate (one entry per user per date)
             docs = db.collection('users').document(session['user']).collection('weight_height_entries').where(filter=FieldFilter('date', '==', date)).stream()
             existing = None
@@ -739,10 +805,10 @@ def add_weight_height():
             if existing:
                 flash(f'An entry already exists for {date}. Please edit that entry instead.')
                 return redirect('/weight-height')
-                
+
             bmi = calculate_bmi(weight, height)
             bmi_cat = get_bmi_category(bmi)
-            
+
             db.collection('users').document(session['user']).collection('weight_height_entries').add({
                 'user_id': session['user'],
                 'date': date,
@@ -762,40 +828,40 @@ def add_weight_height():
             print(f"Error adding weight-height: {e}")
             flash('An error occurred. Please try again.')
             return redirect('/weight-height/add')
-            
+
     return render_template('weight_height_form.html', title='Add Weight & Height', action_url='/weight-height/add', entry=None)
 
 @app.route('/weight-height/edit/<entry_id>', methods=['GET', 'POST'])
 @login_required
 def edit_weight_height(entry_id):
-        
+
     doc = db.collection('users').document(session['user']).collection('weight_height_entries').document(entry_id).get()
     if not doc.exists:
         flash('Entry not found.')
         return redirect('/weight-height')
     entry = doc.to_dict()
     entry['id'] = doc.id
-    
+
     if entry.get('user_id') != session['user']:
         flash('Unauthorized to edit this entry.')
         return redirect('/weight-height')
-        
+
     if request.method == 'POST':
         date = request.form.get('date')
         weight = request.form.get('weight')
         height = request.form.get('height')
-        
+
         if not date or not weight or not height:
             flash('Date, weight, and height are required.')
             return redirect(f'/weight-height/edit/{entry_id}')
-            
+
         try:
             weight = float(weight)
             height = float(height)
             if weight <= 0 or height <= 0:
                 flash('Weight and height must be positive values.')
                 return redirect(f'/weight-height/edit/{entry_id}')
-                
+
             # Date changes are allowed, but check duplicate if date changed
             if date != entry['date']:
                 docs = db.collection('users').document(session['user']).collection('weight_height_entries').where(filter=FieldFilter('date', '==', date)).stream()
@@ -806,10 +872,10 @@ def edit_weight_height(entry_id):
                 if existing:
                     flash(f'An entry already exists for {date}.')
                     return redirect(f'/weight-height/edit/{entry_id}')
-                    
+
             bmi = calculate_bmi(weight, height)
             bmi_cat = get_bmi_category(bmi)
-            
+
             # Update in Firestore
             db.collection('users').document(session['user']).collection('weight_height_entries').document(entry_id).update({
                 'date': date,
@@ -819,7 +885,7 @@ def edit_weight_height(entry_id):
                 'bmi_category': bmi_cat,
                 'updated_at': datetime.now()
             })
-            
+
             flash('Weight & Height entry updated successfully!')
             return redirect('/weight-height')
         except ValueError:
@@ -829,25 +895,25 @@ def edit_weight_height(entry_id):
             print(f"Error updating weight-height: {e}")
             flash('An error occurred. Please try again.')
             return redirect(f'/weight-height/edit/{entry_id}')
-            
+
     return render_template('weight_height_form.html', title='Edit Weight & Height', action_url=f'/weight-height/edit/{entry_id}', entry=entry)
 
 @app.route('/weight-height/delete/<entry_id>', methods=['POST'])
 @login_required
 def delete_weight_height(entry_id):
-        
+
     doc = db.collection('users').document(session['user']).collection('weight_height_entries').document(entry_id).get()
     if not doc.exists or doc.to_dict().get('user_id') != session['user']:
         flash('Entry not found or unauthorized.')
         return redirect('/weight-height')
-        
+
     try:
         db.collection('users').document(session['user']).collection('weight_height_entries').document(entry_id).delete()
         flash('Weight & Height entry deleted successfully!')
     except Exception as e:
         print(f"Error deleting weight-height: {e}")
         flash('An error occurred.')
-        
+
     return redirect('/weight-height')
 
 # --- CRUD APIs ---
@@ -874,16 +940,16 @@ def api_create_weight_height():
     date = data.get('date')
     weight = data.get('weight')
     height = data.get('height')
-    
+
     if not date or not weight or not height:
         return jsonify({'error': 'date, weight, and height are required'}), 400
-        
+
     try:
         weight = float(weight)
         height = float(height)
         if weight <= 0 or height <= 0:
             return jsonify({'error': 'weight and height must be positive'}), 400
-            
+
         docs = db.collection('users').document(session['user']).collection('weight_height_entries').where(filter=FieldFilter('date', '==', date)).stream()
         existing = None
         for doc in docs:
@@ -891,10 +957,10 @@ def api_create_weight_height():
             break
         if existing:
             return jsonify({'error': f'Entry already exists for {date}'}), 409
-            
+
         bmi = calculate_bmi(weight, height)
         bmi_cat = get_bmi_category(bmi)
-        
+
         doc_ref = db.collection('users').document(session['user']).collection('weight_height_entries').add({
             'user_id': session['user'],
             'date': date,
@@ -918,12 +984,12 @@ def api_update_weight_height(entry_id):
     data = request.get_json() or {}
     weight = data.get('weight')
     height = data.get('height')
-    
+
     doc = db.collection('users').document(session['user']).collection('weight_height_entries').document(entry_id).get()
     if not doc.exists or doc.to_dict().get('user_id') != session['user']:
         return jsonify({'error': 'Entry not found or unauthorized'}), 404
     entry = doc.to_dict()
-        
+
     try:
         if weight is not None:
             weight = float(weight)
@@ -931,17 +997,17 @@ def api_update_weight_height(entry_id):
                 return jsonify({'error': 'weight must be positive'}), 400
         else:
             weight = entry['weight']
-            
+
         if height is not None:
             height = float(height)
             if height <= 0:
                 return jsonify({'error': 'height must be positive'}), 400
         else:
             height = entry['height']
-            
+
         bmi = calculate_bmi(weight, height)
         bmi_cat = get_bmi_category(bmi)
-        
+
         db.collection('users').document(session['user']).collection('weight_height_entries').document(entry_id).update({
             'weight': weight,
             'height': height,
@@ -961,7 +1027,7 @@ def api_delete_weight_height(entry_id):
     doc = db.collection('users').document(session['user']).collection('weight_height_entries').document(entry_id).get()
     if not doc.exists or doc.to_dict().get('user_id') != session['user']:
         return jsonify({'error': 'Entry not found or unauthorized'}), 404
-        
+
     db.collection('users').document(session['user']).collection('weight_height_entries').document(entry_id).delete()
     return jsonify({'success': True})
 
@@ -1034,6 +1100,7 @@ def sex_entries():
 def add_sex_entry():
     user_data = get_user_settings(session['user']) or {}
     sex_types, positions = build_sex_options(user_data)
+    user_defaults = user_data.get('defaults', {})
 
     if request.method == 'POST':
         date = request.form.get('date', '').strip()
@@ -1063,7 +1130,7 @@ def add_sex_entry():
             return redirect('/sex-entries/add')
 
     return render_template('sex_entry_form.html', title='Add Sex Entry', action_url='/sex-entries/add',
-                           entry=None, sex_types=sex_types, positions=positions)
+                           entry=None, sex_types=sex_types, positions=positions, user_defaults=user_defaults)
 
 @app.route('/sex-entries/edit/<entry_id>', methods=['GET', 'POST'])
 @login_required
@@ -1137,37 +1204,37 @@ def api_sex_entries_trends():
 @auth_required
 def entries():
     """View and manage all entries"""
-    
+
     is_view_only = session.get('view_only', False)
     user_email = session.get('user') or session.get('view_only_email', '')
-    
+
     page = request.args.get('page', 1, type=int)
     if page < 1:
         page = 1
-        
+
     try:
         try:
             total_count = db.collection('users').document(user_email).collection('period_entries').count().get()[0][0].value
         except Exception as e:
             print(f"Error using count() on period_entries: {e}")
             total_count = len([d for d in db.collection('users').document(user_email).collection('period_entries').select([]).stream()])
-            
+
         limit = 12
         total_pages = math.ceil(total_count / limit)
         if total_pages < 1:
             total_pages = 1
         if page > total_pages:
             page = total_pages
-            
+
         offset_val = (page - 1) * limit
-        
+
         # Fetch only 12 rows for the current page
         docs = db.collection('users').document(user_email).collection('period_entries')\
                  .order_by('date', direction='DESCENDING')\
                  .limit(limit)\
                  .offset(offset_val)\
                  .stream()
-                 
+
         entries_list = []
         for doc in docs:
             entry_data = doc.to_dict()
@@ -1181,9 +1248,9 @@ def entries():
             if 'updated_at' in entry_data and entry_data['updated_at']:
                 entry_data['updated_at'] = entry_data['updated_at'].isoformat() if hasattr(entry_data['updated_at'], 'isoformat') else str(entry_data['updated_at'])
             entries_list.append(entry_data)
-            
-        return render_template('entries.html', 
-                               entries=entries_list, 
+
+        return render_template('entries.html',
+                               entries=entries_list,
                                is_view_only=is_view_only,
                                current_page=page,
                                total_pages=total_pages,
@@ -1198,24 +1265,24 @@ def delete_entry(entry_id):
     """Delete a specific entry"""
     if 'user' not in session:
         return redirect('/login')
-    
+
     try:
         # Verify the entry belongs to the current user
         entry_doc = db.collection('users').document(session['user']).collection('period_entries').document(entry_id).get()
         if not entry_doc.exists:
             flash('Entry not found')
             return redirect('/entries')
-        
+
         entry_data = entry_doc.to_dict()
         if entry_data.get('user_id') != session['user']:
             flash('Unauthorized to delete this entry')
             return redirect('/entries')
-        
+
         # Delete the entry
         db.collection('users').document(session['user']).collection('period_entries').document(entry_id).delete()
         flash('Entry deleted successfully!')
         return redirect('/entries')
-    
+
     except Exception as e:
         print(f"Error deleting entry: {e}")
         flash('Error deleting entry')
@@ -1286,16 +1353,16 @@ def settings():
 @app.route('/customize', methods=['GET', 'POST'])
 @login_required
 def customize():
-    
+
     user_email = session['user']
-    
+
     if request.method == 'POST':
         action = request.form.get('action', '')
         user_data = get_user_settings(user_email)
         if not user_data:
             flash('User not found')
             return redirect('/customize')
-        
+
         if action == 'add_sex_type':
             option = request.form.get('sex_type_name', '').strip()
             if not option:
@@ -1336,7 +1403,12 @@ def customize():
                 flash('Sex type already exists')
                 return redirect('/customize')
             custom_sex_types = [new_option if item == old_option else item for item in custom_sex_types]
-            update_user_settings(user_email, {'custom_sex_types': custom_sex_types})
+            updates = {'custom_sex_types': custom_sex_types}
+            defaults = dict(user_data.get('defaults') or {})
+            if defaults.get('sex_type') == old_option:
+                defaults['sex_type'] = new_option
+                updates['defaults'] = defaults
+            update_user_settings(user_email, updates)
             flash('Sex type updated successfully')
 
         elif action == 'edit_sex_position':
@@ -1353,75 +1425,116 @@ def customize():
                 flash('Position already exists')
                 return redirect('/customize')
             custom_sex_positions = [new_option if item == old_option else item for item in custom_sex_positions]
-            update_user_settings(user_email, {'custom_sex_positions': custom_sex_positions})
+            updates = {'custom_sex_positions': custom_sex_positions}
+            defaults = dict(user_data.get('defaults') or {})
+            if defaults.get('position') == old_option:
+                defaults['position'] = new_option
+                updates['defaults'] = defaults
+            update_user_settings(user_email, updates)
             flash('Position updated successfully')
 
         elif action == 'delete_sex_type':
             option = request.form.get('sex_type_name', '').strip()
             custom_sex_types = [item for item in user_data.get('custom_sex_types', []) if item != option]
-            update_user_settings(user_email, {'custom_sex_types': custom_sex_types})
+            updates = {'custom_sex_types': custom_sex_types}
+            defaults = dict(user_data.get('defaults') or {})
+            if defaults.get('sex_type') == option:
+                defaults['sex_type'] = ''
+                updates['defaults'] = defaults
+            update_user_settings(user_email, updates)
             flash('Sex type removed successfully')
 
         elif action == 'delete_sex_position':
             option = request.form.get('sex_position_name', '').strip()
             custom_sex_positions = [item for item in user_data.get('custom_sex_positions', []) if item != option]
-            update_user_settings(user_email, {'custom_sex_positions': custom_sex_positions})
+            updates = {'custom_sex_positions': custom_sex_positions}
+            defaults = dict(user_data.get('defaults') or {})
+            if defaults.get('position') == option:
+                defaults['position'] = ''
+                updates['defaults'] = defaults
+            update_user_settings(user_email, updates)
             flash('Position removed successfully')
 
         elif action == 'add_symptom':
             symptom_name = request.form.get('symptom_name', '').strip().lower()
             has_intensity = request.form.get('has_intensity') == 'yes'
-            
+
             if not symptom_name:
                 flash('Symptom name is required')
                 return redirect('/customize')
-            
+
             custom_symptoms = user_data.get('custom_symptoms', [])
-            
+
             if any(s['name'] == symptom_name for s in custom_symptoms):
                 flash('Symptom already exists')
                 return redirect('/customize')
-            
+
             custom_symptoms.append({
                 'name': symptom_name,
                 'display_name': request.form.get('symptom_name', ''),
                 'has_intensity': has_intensity,
                 'system_default': False
             })
-            
+
             update_user_settings(user_email, {
                 'custom_symptoms': custom_symptoms
             })
             flash('Symptom added successfully')
-            
+
         elif action == 'edit_symptom':
             symptom_name = request.form.get('symptom_name', '').strip()
             display_name = request.form.get('display_name', '').strip()
-            has_intensity = request.form.get('has_intensity') == 'yes'
+            has_intensity = request.form.get('has_intensity') in ('yes', 'true')
             is_system_default = request.form.get('is_system_default').lower() == 'true'
             old_has_intensity = request.form.get('old_has_intensity').lower() == 'true'
-            
+
             if is_system_default:
                 symptom_overrides = user_data.get('symptom_overrides', {})
                 if symptom_name not in symptom_overrides:
                     symptom_overrides[symptom_name] = {}
-                
+
                 symptom_overrides[symptom_name] = {
                     'display_name': display_name,
                     'has_intensity': has_intensity
                 }
-                
+
                 if old_has_intensity and not has_intensity:
                     docs = db.collection('users').document(session['user']).collection('period_entries').stream()
                     for doc in docs:
                         entry_data = doc.to_dict()
                         if 'symptoms' in entry_data:
+                            updated_symptoms = []
+                            modified = False
                             for symptom in entry_data['symptoms']:
-                                if symptom.get('name') == symptom_name and 'intensity' not in symptom and has_intensity is False:
-                                    pass
-                                elif symptom.get('name') == symptom_name and 'intensity' in symptom:
-                                    symptom['intensity_before_removal'] = symptom.get('intensity', 'medium')
-                    
+                                if symptom.get('name') == symptom_name:
+                                    if 'intensity' in symptom:
+                                        symptom['intensity_before_removal'] = symptom.get('intensity', 'medium')
+                                        del symptom['intensity']
+                                        modified = True
+                                updated_symptoms.append(symptom)
+                            if modified:
+                                db.collection('users').document(session['user']).collection('period_entries').document(doc.id).update({
+                                    'symptoms': updated_symptoms
+                                })
+                elif not old_has_intensity and has_intensity:
+                    docs = db.collection('users').document(session['user']).collection('period_entries').stream()
+                    for doc in docs:
+                        entry_data = doc.to_dict()
+                        if 'symptoms' in entry_data:
+                            updated_symptoms = []
+                            modified = False
+                            for symptom in entry_data['symptoms']:
+                                if symptom.get('name') == symptom_name:
+                                    if 'intensity_before_removal' in symptom:
+                                        symptom['intensity'] = symptom['intensity_before_removal']
+                                        del symptom['intensity_before_removal']
+                                        modified = True
+                                updated_symptoms.append(symptom)
+                            if modified:
+                                db.collection('users').document(session['user']).collection('period_entries').document(doc.id).update({
+                                    'symptoms': updated_symptoms
+                                })
+
                 update_user_settings(user_email, {
                     'symptom_overrides': symptom_overrides
                 })
@@ -1432,33 +1545,59 @@ def customize():
                         symptom['display_name'] = display_name
                         symptom['has_intensity'] = has_intensity
                         break
-                
+
                 if old_has_intensity and not has_intensity:
                     docs = db.collection('users').document(session['user']).collection('period_entries').stream()
                     for doc in docs:
                         entry_data = doc.to_dict()
                         if 'symptoms' in entry_data:
+                            updated_symptoms = []
+                            modified = False
                             for symptom in entry_data['symptoms']:
-                                if symptom.get('name') == symptom_name and 'intensity' in symptom:
-                                    symptom['intensity_before_removal'] = 'medium'
+                                if symptom.get('name') == symptom_name:
                                     if 'intensity' in symptom:
+                                        symptom['intensity_before_removal'] = symptom.get('intensity', 'medium')
                                         del symptom['intensity']
-                
+                                        modified = True
+                                updated_symptoms.append(symptom)
+                            if modified:
+                                db.collection('users').document(session['user']).collection('period_entries').document(doc.id).update({
+                                    'symptoms': updated_symptoms
+                                })
+                elif not old_has_intensity and has_intensity:
+                    docs = db.collection('users').document(session['user']).collection('period_entries').stream()
+                    for doc in docs:
+                        entry_data = doc.to_dict()
+                        if 'symptoms' in entry_data:
+                            updated_symptoms = []
+                            modified = False
+                            for symptom in entry_data['symptoms']:
+                                if symptom.get('name') == symptom_name:
+                                    if 'intensity_before_removal' in symptom:
+                                        symptom['intensity'] = symptom['intensity_before_removal']
+                                        del symptom['intensity_before_removal']
+                                        modified = True
+                                updated_symptoms.append(symptom)
+                            if modified:
+                                db.collection('users').document(session['user']).collection('period_entries').document(doc.id).update({
+                                    'symptoms': updated_symptoms
+                                })
+
                 update_user_settings(user_email, {
                     'custom_symptoms': custom_symptoms
                 })
-            
+
             flash('Symptom updated successfully')
-            
+
         elif action == 'delete_symptom':
             symptom_name = request.form.get('symptom_name', '').strip()
             is_system_default = request.form.get('is_system_default').lower() == 'true'
-            
+
             if is_system_default:
                 disabled_symptoms = user_data.get('disabled_symptoms', [])
                 if symptom_name not in disabled_symptoms:
                     disabled_symptoms.append(symptom_name)
-                
+
                 docs = db.collection('users').document(session['user']).collection('period_entries').stream()
                 for doc in docs:
                     entry_data = doc.to_dict()
@@ -1467,14 +1606,18 @@ def customize():
                         db.collection('users').document(session['user']).collection('period_entries').document(doc.id).update({
                             'symptoms': entry_data['symptoms']
                         })
-                
-                update_user_settings(user_email, {
-                    'disabled_symptoms': disabled_symptoms
-                })
+
+                updates = {'disabled_symptoms': disabled_symptoms}
+                defaults = dict(user_data.get('defaults') or {})
+                default_key = SYMPTOM_DEFAULT_KEYS.get(symptom_name)
+                if default_key and defaults.get(default_key):
+                    defaults[default_key] = ''
+                    updates['defaults'] = defaults
+                update_user_settings(user_email, updates)
             else:
                 custom_symptoms = user_data.get('custom_symptoms', [])
                 custom_symptoms = [s for s in custom_symptoms if s['name'] != symptom_name]
-                
+
                 docs = db.collection('users').document(session['user']).collection('period_entries').stream()
                 for doc in docs:
                     entry_data = doc.to_dict()
@@ -1483,35 +1626,38 @@ def customize():
                         db.collection('users').document(session['user']).collection('period_entries').document(doc.id).update({
                             'symptoms': entry_data['symptoms']
                         })
-                
+
                 update_user_settings(user_email, {
                     'custom_symptoms': custom_symptoms
                 })
-            
+
             flash('Symptom deleted successfully')
-            
+
         elif action == 'save_defaults':
             defaults = {
                 'flow_amount': int(request.form.get('default_flow_amount', 5)),
                 'weird_intensity': request.form.get('default_weird_intensity', ''),
                 'craving_intensity': request.form.get('default_craving_intensity', ''),
                 'irritation_intensity': request.form.get('default_irritation_intensity', ''),
-                'diarrhea_intensity': request.form.get('default_diarrhea_intensity', '')
+                'diarrhea_intensity': request.form.get('default_diarrhea_intensity', ''),
+                'sex_type': request.form.get('default_sex_type', ''),
+                'position': request.form.get('default_position', '')
             }
-            
+            sanitized_defaults, _ = sanitize_user_defaults({**user_data, 'defaults': defaults})
+
             update_user_settings(user_email, {
-                'defaults': defaults
+                'defaults': sanitized_defaults
             })
             flash('Default settings saved successfully')
-        
+
         return redirect('/customize')
-    
+
     try:
         user_data = get_user_settings(user_email)
         if not user_data:
             flash('User settings not found')
             return redirect('/')
-        
+
         # Standard symptoms
         standard_symptoms = [
             {'name': 'period', 'display_name': 'Period', 'has_intensity': False, 'system_default': True},
@@ -1520,11 +1666,11 @@ def customize():
             {'name': 'craving', 'display_name': 'Craving', 'has_intensity': True, 'system_default': True},
             {'name': 'irritation', 'display_name': 'Irritation', 'has_intensity': True, 'system_default': True}
         ]
-        
+
         # Get user's overrides and disabled symptoms
         symptom_overrides = user_data.get('symptom_overrides', {})
         disabled_symptoms = user_data.get('disabled_symptoms', [])
-        
+
         # Build final symptoms list with overrides applied
         all_symptoms = []
         for symptom in standard_symptoms:
@@ -1535,18 +1681,23 @@ def customize():
                     symptom = symptom.copy()
                     symptom['display_name'] = override.get('display_name', symptom['display_name'])
                     symptom['has_intensity'] = override.get('has_intensity', symptom['has_intensity'])
-                
+
                 all_symptoms.append(symptom)
-        
+
         # Add custom symptoms
         custom_symptoms = user_data.get('custom_symptoms', [])
         all_symptoms.extend(custom_symptoms)
-        
+
         defaults = user_data.get('defaults', {})
         sex_types, sex_positions = build_sex_options(user_data)
         custom_sex_types = user_data.get('custom_sex_types', [])
         custom_sex_positions = user_data.get('custom_sex_positions', [])
-        
+
+        sanitized_defaults, defaults_changed = sanitize_user_defaults(user_data)
+        if defaults_changed:
+            update_user_settings(user_email, {'defaults': sanitized_defaults})
+            defaults = sanitized_defaults
+
         return render_template('customize.html', symptoms=all_symptoms, defaults=defaults,
                                sex_types=sex_types, sex_positions=sex_positions,
                                custom_sex_types=custom_sex_types,
@@ -1564,7 +1715,7 @@ def view_analytics_mode():
             return redirect(f'/view-analytics/{password}')
         else:
             flash('Invalid analytics password')
-    
+
     return render_template('view_analytics_mode.html')
 
 @app.route('/view-analytics-login', methods=['GET', 'POST'])
@@ -1665,14 +1816,3 @@ def add_header(response):
 
 if __name__ == "__main__":
     app.run(debug=True)
-
-
-
-
-
-
-
-
-
-
-

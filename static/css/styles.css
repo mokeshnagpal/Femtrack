@@ -313,11 +313,11 @@ body {
         padding: 0.75rem;
         margin-bottom: 1rem;
     }
-    
+
     .card-body {
         padding: 1rem !important;
     }
-    
+
     .card-header {
         padding: 1rem 1.25rem !important;
     }
@@ -960,6 +960,22 @@ html[data-bs-theme="dark"] {
     background: var(--primary-color);
 }
 
+.fem-toast-danger::before {
+    background: #dc3545 !important;
+}
+
+.fem-toast-success::before {
+    background: #198754 !important;
+}
+
+.fem-toast-warning::before {
+    background: #ffc107 !important;
+}
+
+.fem-toast-info::before {
+    background: var(--primary-color) !important;
+}
+
 .fem-toast button {
     border: 0;
     background: transparent;
@@ -1086,33 +1102,32 @@ html[data-bs-theme="dark"] {
 }
 
 
-/* Navbar logo sizing pass: wider logo, tighter chrome */
+/* Navbar logo sizing pass: larger logo, no brand chrome */
 .navbar {
-    min-height: 48px;
-    padding-top: 0.15rem;
-    padding-bottom: 0.15rem;
+    min-height: 58px;
+    padding-top: 0;
+    padding-bottom: 0;
 }
 
 .navbar > .container-fluid {
-    padding-left: 0.45rem;
-    padding-right: 0.55rem;
+    padding-left: 0.25rem;
+    padding-right: 0.35rem;
 }
 
 .navbar-brand {
-    padding-top: 0;
-    padding-bottom: 0;
-    margin-right: 0.55rem;
+    padding: 0;
+    margin: 0;
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0;
 }
 
 .navbar-logo {
-    height: 44px;
-    width: 156px;
-    max-width: 42vw;
+    height: 56px;
+    width: 196px;
+    max-width: 46vw;
     object-fit: contain;
-    margin-right: 2px;
+    margin: 0;
 }
 
 .navbar .nav-link {
@@ -1132,9 +1147,9 @@ html[data-bs-theme="dark"] {
 
 @media (max-width: 767.98px) {
     .navbar-logo {
-        height: 42px;
-        width: 148px;
-        max-width: 58vw;
+        height: 52px;
+        width: 178px;
+        max-width: 64vw;
     }
 }
 
@@ -1160,4 +1175,67 @@ html[data-bs-theme="dark"] {
     gap: 0.25rem;
     margin: 0;
     width: auto;
+}
+
+/* Shared table pagination */
+.table-pagination {
+    width: 100%;
+}
+
+.card-body.p-0 > .table-pagination {
+    padding: 0 1.5rem 1rem;
+}
+
+.femtrack-pagination .pagination {
+    gap: 0.25rem;
+}
+
+.femtrack-pagination .page-link {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    border-radius: 4px;
+}
+
+.femtrack-pagination .page-item:not(.disabled) .page-link:hover {
+    background-color: var(--accent-color);
+    color: #fff;
+}
+
+.femtrack-pagination .page-item.disabled .page-link {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* Analytics filter bar */
+.analytics-filter-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+
+.analytics-filter-actions .btn {
+    min-height: 50px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0;
+}
+
+@media (max-width: 576px) {
+    .analytics-filter-actions {
+        align-items: stretch;
+    }
+}
+
+/* Match form action buttons to custom dropdown height */
+.row.align-items-end .btn[type="submit"],
+.row.align-items-end a.btn {
+    min-height: 50px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.custom-select-dropdown .dropdown-toggle {
+    min-height: 50px;
 }

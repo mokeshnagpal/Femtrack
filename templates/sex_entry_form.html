@@ -14,13 +14,13 @@
             {% for option in sex_types %}
                 {% set _ = sex_type_options.append((option, option)) %}
             {% endfor %}
-            {{ components.dropdown(name="sex_type", label="Sex Type", options=sex_type_options, selected_value=entry.sex_type if entry else '', id="sex_type", required=True, icon="fas fa-heart") }}
+            {{ components.dropdown(name="sex_type", label="Sex Type", options=sex_type_options, selected_value=entry.sex_type if entry else (user_defaults.sex_type if user_defaults else ''), id="sex_type", required=True, icon="fas fa-heart") }}
 
             {% set position_options = [("", "Not set")] %}
             {% for option in positions %}
                 {% set _ = position_options.append((option, option)) %}
             {% endfor %}
-            {{ components.dropdown(name="position", label="Position", options=position_options, selected_value=entry.position if entry else '', id="position", icon="fas fa-person") }}
+            {{ components.dropdown(name="position", label="Position", options=position_options, selected_value=entry.position if entry else (user_defaults.position if user_defaults else ''), id="position", icon="fas fa-person") }}
 
             {{ components.textarea(name="notes", label="Optional Details", value=entry.notes if entry else '', placeholder="Anything you want to remember privately", rows=4, id="notes") }}
 
@@ -32,5 +32,35 @@
         {% endcall %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dateInput = document.getElementById('date');
+    const sexTypeSelect = document.getElementById('sex_type');
+    const form = document.getElementById('sexEntryForm');
+
+    {% if not entry %}
+    if (dateInput && !dateInput.value) {
+        dateInput.valueAsDate = new Date();
+    }
+    {% endif %}
+
+    form?.addEventListener('submit', function(e) {
+        const errors = [];
+        if (!dateInput?.value) {
+            errors.push('Date is required');
+        }
+        if (!sexTypeSelect?.value) {
+            errors.push('Sex type is required');
+        }
+        if (errors.length) {
+            e.preventDefault();
+            window.showFemtrackErrors?.(errors);
+        }
+    });
+});
+</script>
 {% endblock %}
 

@@ -102,7 +102,7 @@
     <div class="container-fluid main-container">
         <div class="container mt-4">
             <div id="toastRoot" class="toast-root" aria-live="polite" aria-atomic="true"></div>
-            {% with messages = get_flashed_messages() %}
+            {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
             <script type="application/json" id="flashedMessages">{{ messages|tojson }}</script>
             {% endif %}
@@ -148,6 +148,7 @@
         function showFemtrackToast(message, type = 'info') {
             const root = document.getElementById('toastRoot');
             if (!root || !message) return;
+            if (type === 'error') type = 'danger';
             const toast = document.createElement('div');
             toast.className = `fem-toast fem-toast-${type}`;
             toast.innerHTML = `<span>${message}</span><button type="button" aria-label="Dismiss">&times;</button>`;
@@ -160,10 +161,35 @@
             }, 4000);
         }
 
+        function showFemtrackErrors(errors) {
+            const list = Array.isArray(errors) ? errors : [errors];
+            list.filter(Boolean).forEach(msg => showFemtrackToast(msg, 'danger'));
+        }
+
         window.showFemtrackToast = showFemtrackToast;
+        window.showFemtrackErrors = showFemtrackErrors;
         const flashedMessagesEl = document.getElementById('flashedMessages');
         if (flashedMessagesEl) {
-            JSON.parse(flashedMessagesEl.textContent || '[]').forEach(message => showFemtrackToast(message));
+            JSON.parse(flashedMessagesEl.textContent || '[]').forEach(([category, message]) => {
+                let type = 'info';
+                if (category === 'error' || category === 'danger') {
+                    type = 'danger';
+                } else if (category === 'success') {
+                    type = 'success';
+                } else if (category === 'warning') {
+                    type = 'warning';
+                } else {
+                    const msg = message.toLowerCase();
+                    if (msg.includes('success') || msg.includes('updated') || msg.includes('added') || msg.includes('saved') || msg.includes('verified') || msg.includes('deleted')) {
+                        type = 'success';
+                    } else if (msg.includes('error') || msg.includes('fail') || msg.includes('invalid') || msg.includes('denied') || msg.includes('required') || msg.includes('expired') || msg.includes('unauthorized') || msg.includes('cannot') || msg.includes('not found') || msg.includes('must be')) {
+                        type = 'danger';
+                    } else if (msg.includes('warning') || msg.includes('caution')) {
+                        type = 'warning';
+                    }
+                }
+                showFemtrackToast(message, type);
+            });
         }
         // Global helper for custom styled dropdown component
         function syncCustomDropdown(selectId) {
