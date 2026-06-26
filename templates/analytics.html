@@ -6,283 +6,284 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim() || '#2c3e50';
-    const borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim() || '#e0e0e0';
-    const analyticsQuery = "?group_by={{ analytics_filters.group_by }}&limit={{ analytics_filters.limit }}";
+    document.addEventListener('DOMContentLoaded', function () {
+        const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim() || '#2c3e50';
+        const borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim() || '#e0e0e0';
+        const analyticsQuery = "?group_by={{ analytics_filters.group_by }}&limit={{ analytics_filters.limit }}";
 
-    function themedScales(extraYOptions = {}, axisTitles = {}) {
-        return {
-            x: {
-                ticks: { color: textColor },
-                grid: { color: borderColor },
-                title: { display: Boolean(axisTitles.x), text: axisTitles.x || '', color: textColor }
-            },
-            y: {
-                ticks: { color: textColor },
-                grid: { color: borderColor },
-                title: { display: Boolean(axisTitles.y), text: axisTitles.y || '', color: textColor },
-                ...extraYOptions
-            }
-        };
-    }
-
-    function themedLegend(position = 'bottom') {
-        return {
-            position,
-            labels: {
-                color: textColor,
-                boxWidth: 14,
-                padding: 14
-            }
-        };
-    }
-
-    function showChartMessage(containerId, message) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        container.innerHTML = `<div class="alert alert-light text-center py-4 mb-0">${message}</div>`;
-    }
-
-
-    function buildTrendDataset(label, values, color) {
-        const numeric = values.map(value => Number(value) || 0);
-        if (numeric.length < 2) return null;
-        const n = numeric.length;
-        const sumX = numeric.reduce((sum, _, index) => sum + index, 0);
-        const sumY = numeric.reduce((sum, value) => sum + value, 0);
-        const sumXY = numeric.reduce((sum, value, index) => sum + index * value, 0);
-        const sumXX = numeric.reduce((sum, _, index) => sum + index * index, 0);
-        const denominator = n * sumXX - sumX * sumX;
-        if (denominator === 0) return null;
-        const slope = (n * sumXY - sumX * sumY) / denominator;
-        const intercept = (sumY - slope * sumX) / n;
-        return {
-            label,
-            data: numeric.map((_, index) => Number((slope * index + intercept).toFixed(2))),
-            borderColor: color,
-            backgroundColor: 'transparent',
-            borderDash: [6, 4],
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0,
-            fill: false
-        };
-    }
-    async function fetchJson(url) {
-        const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
-        const data = await response.json();
-        if (!response.ok || data.error) {
-            throw new Error(data.error || `Request failed with status ${response.status}`);
-        }
-        return data;
-    }
-
-    function applyGraphFocus(focus) {
-        const selectedFocus = focus || 'all';
-        document.querySelectorAll('[data-graph-focus]').forEach(section => {
-            const supportedFocuses = (section.dataset.graphFocus || '').split(' ');
-            section.classList.toggle('d-none', selectedFocus !== 'all' && !supportedFocuses.includes(selectedFocus));
-        });
-    }
-
-    window.setAnalyticsGraphFocus = applyGraphFocus;
-    const graphFocusSelect = document.getElementById('graph_focus');
-    if (graphFocusSelect) {
-        applyGraphFocus(graphFocusSelect.value);
-        graphFocusSelect.addEventListener('change', () => applyGraphFocus(graphFocusSelect.value));
-    }
-
-    if (!window.Chart) {
-        window.showFemtrackToast?.('Charts could not load. Please check your connection and refresh.', 'danger');
-        showChartMessage('menstrualCharts', 'Charts could not load. Please check your connection and refresh.');
-        showChartMessage('bodyMetricsCharts', 'Charts could not load. Please check your connection and refresh.');
-        showChartMessage('sexCharts', 'Charts could not load. Please check your connection and refresh.');
-        return;
-    }
-
-    Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
-    Chart.defaults.color = textColor;
-
-    fetchJson('/analytics-data' + analyticsQuery)
-        .then(data => {
-            if (!Array.isArray(data) || data.length === 0) {
-                showChartMessage('menstrualCharts', 'No menstrual data recorded yet.');
-                return;
-            }
-
-            const dates = data.map(d => d.date || '');
-            const amounts = data.map(d => Number(d.amount) || 0);
-            const symptoms = data.flatMap(d => d.symptoms || []);
-            const periodStarts = data.filter(d => d.is_period_start).map(d => d.date);
-            const amountCanvas = document.getElementById('amountChart');
-            const amountTrend = buildTrendDataset('Flow Trend', amounts, '#2f855a');
-
-            if (amountCanvas) {
-                new Chart(amountCanvas, {
-                    type: 'line',
-                    data: {
-                        labels: dates,
-                        datasets: [{
-                            label: 'Flow Amount',
-                            data: amounts,
-                            borderColor: '#9f2f55',
-                            backgroundColor: 'rgba(159, 47, 85, 0.12)',
-                            borderWidth: 3,
-                            tension: 0.3,
-                            fill: true,
-                            pointBackgroundColor: dates.map(date => periodStarts.includes(date) ? '#c05621' : '#9f2f55'),
-                            pointBorderColor: '#fff',
-                            pointBorderWidth: 2,
-                            pointRadius: 6
-                        }, ...(amountTrend ? [amountTrend] : [])]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            title: { display: true, text: 'Period Flow over Time' },
-                            legend: themedLegend('bottom')
-                        },
-                        scales: themedScales({ beginAtZero: true, max: 10, ticks: { color: textColor, stepSize: 1 } }, { x: 'Date', y: 'Flow Amount' })
-                    }
-                });
-            }
-
-            const symptomCounts = {};
-            symptoms.forEach(symptom => {
-                const symptomName = typeof symptom === 'object' ? symptom.name : symptom;
-                if (symptomName && symptomName !== 'period') {
-                    symptomCounts[symptomName] = (symptomCounts[symptomName] || 0) + 1;
+        function themedScales(extraYOptions = {}, axisTitles = {}) {
+            return {
+                x: {
+                    ticks: { color: textColor },
+                    grid: { color: borderColor },
+                    title: { display: Boolean(axisTitles.x), text: axisTitles.x || '', color: textColor }
+                },
+                y: {
+                    ticks: { color: textColor },
+                    grid: { color: borderColor },
+                    title: { display: Boolean(axisTitles.y), text: axisTitles.y || '', color: textColor },
+                    ...extraYOptions
                 }
-            });
+            };
+        }
 
-            const symptomsCanvas = document.getElementById('symptomsChart');
-            if (Object.keys(symptomCounts).length > 0 && symptomsCanvas) {
-                new Chart(symptomsCanvas, {
-                    type: 'doughnut',
-                    data: {
-                        labels: Object.keys(symptomCounts),
-                        datasets: [{
-                            data: Object.values(symptomCounts),
-                            backgroundColor: [
-                                'rgba(159, 47, 85, 0.85)',
-                                'rgba(245, 87, 108, 0.8)',
-                                'rgba(47, 133, 90, 0.85)',
-                                'rgba(192, 86, 33, 0.8)',
-                                'rgba(111, 58, 117, 0.8)'
-                            ],
-                            borderColor: '#fff',
-                            borderWidth: 2
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            title: { display: true, text: 'Symptom Frequency' },
-                            legend: themedLegend('bottom')
+        function themedLegend(position = 'bottom') {
+            return {
+                position,
+                labels: {
+                    color: textColor,
+                    boxWidth: 14,
+                    padding: 14
+                }
+            };
+        }
+
+        function showChartMessage(containerId, message) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = `<div class="alert alert-light text-center py-4 mb-0">${message}</div>`;
+        }
+
+
+        function buildTrendDataset(label, values, color) {
+            const numeric = values.map(value => Number(value) || 0);
+            if (numeric.length < 2) return null;
+            const n = numeric.length;
+            const sumX = numeric.reduce((sum, _, index) => sum + index, 0);
+            const sumY = numeric.reduce((sum, value) => sum + value, 0);
+            const sumXY = numeric.reduce((sum, value, index) => sum + index * value, 0);
+            const sumXX = numeric.reduce((sum, _, index) => sum + index * index, 0);
+            const denominator = n * sumXX - sumX * sumX;
+            if (denominator === 0) return null;
+            const slope = (n * sumXY - sumX * sumY) / denominator;
+            const intercept = (sumY - slope * sumX) / n;
+            return {
+                label,
+                data: numeric.map((_, index) => Number((slope * index + intercept).toFixed(2))),
+                borderColor: color,
+                backgroundColor: 'transparent',
+                borderDash: [6, 4],
+                borderWidth: 2,
+                pointRadius: 0,
+                tension: 0,
+                fill: false
+            };
+        }
+        async function fetchJson(url) {
+            const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            const data = await response.json();
+            if (!response.ok || data.error) {
+                throw new Error(data.error || `Request failed with status ${response.status}`);
+            }
+            return data;
+        }
+
+        function applyGraphFocus(focus) {
+            const selectedFocus = focus || 'all';
+            document.querySelectorAll('[data-graph-focus]').forEach(section => {
+                const supportedFocuses = (section.dataset.graphFocus || '').split(' ');
+                section.classList.toggle('d-none', selectedFocus !== 'all' && !supportedFocuses.includes(selectedFocus));
+            });
+        }
+
+        window.setAnalyticsGraphFocus = applyGraphFocus;
+        const graphFocusSelect = document.getElementById('graph_focus');
+        if (graphFocusSelect) {
+            applyGraphFocus(graphFocusSelect.value);
+            graphFocusSelect.addEventListener('change', () => applyGraphFocus(graphFocusSelect.value));
+        }
+
+        if (!window.Chart) {
+            window.showFemtrackToast?.('Charts could not load. Please check your connection and refresh.', 'danger');
+            showChartMessage('menstrualCharts', 'Charts could not load. Please check your connection and refresh.');
+            showChartMessage('bodyMetricsCharts', 'Charts could not load. Please check your connection and refresh.');
+            showChartMessage('sexCharts', 'Charts could not load. Please check your connection and refresh.');
+            return;
+        }
+
+        Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+        Chart.defaults.color = textColor;
+
+        fetchJson('/analytics-data' + analyticsQuery)
+            .then(data => {
+                if (!Array.isArray(data) || data.length === 0) {
+                    showChartMessage('menstrualCharts', 'No menstrual data recorded yet.');
+                    return;
+                }
+
+                const dates = data.map(d => d.date || '');
+                const amounts = data.map(d => Number(d.amount) || 0);
+                const symptoms = data.flatMap(d => d.symptoms || []);
+                const periodStarts = data.filter(d => d.is_period_start).map(d => d.date);
+                const amountCanvas = document.getElementById('amountChart');
+                const amountTrend = buildTrendDataset('Flow Trend', amounts, '#2f855a');
+
+                if (amountCanvas) {
+                    new Chart(amountCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: dates,
+                            datasets: [{
+                                label: 'Flow Amount',
+                                data: amounts,
+                                borderColor: '#9f2f55',
+                                backgroundColor: 'rgba(159, 47, 85, 0.12)',
+                                borderWidth: 3,
+                                tension: 0.3,
+                                fill: true,
+                                pointBackgroundColor: dates.map(date => periodStarts.includes(date) ? '#c05621' : '#9f2f55'),
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 2,
+                                pointRadius: 6
+                            }, ...(amountTrend ? [amountTrend] : [])]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                title: { display: true, text: 'Period Flow over Time' },
+                                legend: themedLegend('bottom')
+                            },
+                            scales: themedScales({ beginAtZero: true, max: 10, ticks: { color: textColor, stepSize: 1 } }, { x: 'Date', y: 'Flow Amount' })
                         }
+                    });
+                }
+
+                const symptomCounts = {};
+                symptoms.forEach(symptom => {
+                    const symptomName = typeof symptom === 'object' ? symptom.name : symptom;
+                    if (symptomName && symptomName !== 'period') {
+                        symptomCounts[symptomName] = (symptomCounts[symptomName] || 0) + 1;
                     }
                 });
-            } else {
-                showChartMessage('symptomsChartContainer', 'No symptoms tracked.');
-            }
-        })
-        .catch(error => {
-            console.error('Menstrual analytics failed:', error);
-            window.showFemtrackToast?.(error.message || 'Unable to load menstrual analytics right now.', 'danger');
-            showChartMessage('menstrualCharts', 'Unable to load menstrual analytics right now.');
-        });
 
-    fetchJson('/api/weight-height/trends' + analyticsQuery)
-        .then(data => {
-            if (!Array.isArray(data) || data.length === 0) {
-                showChartMessage('bodyMetricsCharts', 'No weight or height data recorded yet.');
-                return;
-            }
-
-            const dates = data.map(d => {
-                if (!d.date) return '';
-                const date = new Date(`${d.date}T00:00:00`);
-                return Number.isNaN(date.getTime()) ? d.date : date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+                const symptomsCanvas = document.getElementById('symptomsChart');
+                if (Object.keys(symptomCounts).length > 0 && symptomsCanvas) {
+                    new Chart(symptomsCanvas, {
+                        type: 'doughnut',
+                        data: {
+                            labels: Object.keys(symptomCounts),
+                            datasets: [{
+                                data: Object.values(symptomCounts),
+                                backgroundColor: [
+                                    'rgba(159, 47, 85, 0.85)',
+                                    'rgba(245, 87, 108, 0.8)',
+                                    'rgba(47, 133, 90, 0.85)',
+                                    'rgba(192, 86, 33, 0.8)',
+                                    'rgba(111, 58, 117, 0.8)'
+                                ],
+                                borderColor: '#fff',
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                title: { display: true, text: 'Symptom Frequency' },
+                                legend: themedLegend('bottom')
+                            }
+                        }
+                    });
+                } else {
+                    showChartMessage('symptomsChartContainer', 'No symptoms tracked.');
+                }
+            })
+            .catch(error => {
+                console.error('Menstrual analytics failed:', error);
+                window.showFemtrackToast?.(error.message || 'Unable to load menstrual analytics right now.', 'danger');
+                showChartMessage('menstrualCharts', 'Unable to load menstrual analytics right now.');
             });
-            const weights = data.map(d => Number(d.weight) || 0);
-            const bmis = data.map(d => Number(d.bmi) || 0);
-            const weightCanvas = document.getElementById('weightTrendChart');
-            const weightTrend = buildTrendDataset('Weight Trend Line', weights, '#2f855a');
-            const bmiCanvas = document.getElementById('bmiTrendChart');
-            const bmiTrend = buildTrendDataset('BMI Trend Line', bmis, '#2f855a');
 
-            if (weightCanvas) {
-                new Chart(weightCanvas, {
-                    type: 'line',
-                    data: {
-                        labels: dates,
-                        datasets: [{
-                            label: 'Weight (kg)',
-                            data: weights,
-                            borderColor: '#9f2f55',
-                            backgroundColor: 'rgba(159, 47, 85, 0.12)',
-                            borderWidth: 3,
-                            tension: 0.2,
-                            fill: true,
-                            pointBackgroundColor: '#6f3a75',
-                            pointBorderColor: '#fff',
-                            pointBorderWidth: 2,
-                            pointRadius: 5
-                        }, ...(weightTrend ? [weightTrend] : [])]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            title: { display: true, text: 'Weight Trend' },
-                            legend: themedLegend('bottom')
-                        },
-                        scales: themedScales({}, { x: 'Date', y: 'Weight (kg)' })
-                    }
+        fetchJson('/api/weight-height/trends' + analyticsQuery)
+            .then(data => {
+                if (!Array.isArray(data) || data.length === 0) {
+                    showChartMessage('bodyMetricsCharts', 'No weight or height data recorded yet.');
+                    return;
+                }
+
+                const dates = data.map(d => {
+                    if (!d.date) return '';
+                    const date = new Date(`${d.date}T00:00:00`);
+                    return Number.isNaN(date.getTime()) ? d.date : date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
                 });
-            }
+                const weights = data.map(d => Number(d.weight) || 0);
+                const bmis = data.map(d => Number(d.bmi) || 0);
+                const weightCanvas = document.getElementById('weightTrendChart');
+                const weightTrend = buildTrendDataset('Weight Trend Line', weights, '#2f855a');
+                const bmiCanvas = document.getElementById('bmiTrendChart');
+                const bmiTrend = buildTrendDataset('BMI Trend Line', bmis, '#2f855a');
 
-            if (bmiCanvas) {
-                new Chart(bmiCanvas, {
-                    type: 'line',
-                    data: {
-                        labels: dates,
-                        datasets: [{
-                            label: 'BMI',
-                            data: bmis,
-                            borderColor: '#c05621',
-                            backgroundColor: 'rgba(192, 86, 33, 0.12)',
-                            borderWidth: 3,
-                            tension: 0.2,
-                            fill: true,
-                            pointBackgroundColor: '#e59f5d',
-                            pointBorderColor: '#fff',
-                            pointBorderWidth: 2,
-                            pointRadius: 5
-                        }, ...(bmiTrend ? [bmiTrend] : [])]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            title: { display: true, text: 'BMI Progression' },
-                            legend: themedLegend('bottom')
+                if (weightCanvas) {
+                    new Chart(weightCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: dates,
+                            datasets: [{
+                                label: 'Weight (kg)',
+                                data: weights,
+                                borderColor: '#9f2f55',
+                                backgroundColor: 'rgba(159, 47, 85, 0.12)',
+                                borderWidth: 3,
+                                tension: 0.2,
+                                fill: true,
+                                pointBackgroundColor: '#6f3a75',
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 2,
+                                pointRadius: 5
+                            }, ...(weightTrend ? [weightTrend] : [])]
                         },
-                        scales: themedScales({}, { x: 'Date', y: 'BMI' })
-                    }
-                });
-            }
-        })
-        .catch(error => {
-            console.error('Body metrics analytics failed:', error);
-            window.showFemtrackToast?.(error.message || 'Unable to load body metrics analytics right now.', 'danger');
-            showChartMessage('bodyMetricsCharts', 'Unable to load body metrics analytics right now.');
-        });
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                title: { display: true, text: 'Weight Trend' },
+                                legend: themedLegend('bottom')
+                            },
+                            scales: themedScales({}, { x: 'Date', y: 'Weight (kg)' })
+                        }
+                    });
+                }
 
-    const sexTypeChart = {{ sex_summary.type_chart | tojson }};
+                if (bmiCanvas) {
+                    new Chart(bmiCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: dates,
+                            datasets: [{
+                                label: 'BMI',
+                                data: bmis,
+                                borderColor: '#c05621',
+                                backgroundColor: 'rgba(192, 86, 33, 0.12)',
+                                borderWidth: 3,
+                                tension: 0.2,
+                                fill: true,
+                                pointBackgroundColor: '#e59f5d',
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 2,
+                                pointRadius: 5
+                            }, ...(bmiTrend ? [bmiTrend] : [])]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                title: { display: true, text: 'BMI Progression' },
+                                legend: themedLegend('bottom')
+                            },
+                            scales: themedScales({}, { x: 'Date', y: 'BMI' })
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Body metrics analytics failed:', error);
+                window.showFemtrackToast?.(error.message || 'Unable to load body metrics analytics right now.', 'danger');
+                showChartMessage('bodyMetricsCharts', 'Unable to load body metrics analytics right now.');
+            });
+
+        const sexTypeChart = {{ sex_summary.type_chart | tojson
+    }};
     const sexPositionChart = {{ sex_summary.position_chart | tojson }};
 
     function buildSexBarChart(canvasId, chartData, color, title) {
@@ -337,11 +338,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const updateInstance = (chartInstance) => {
             if (!chartInstance) return;
-            
+
             if (chartInstance.options.plugins && chartInstance.options.plugins.legend) {
                 chartInstance.options.plugins.legend.labels.color = textCol;
             }
-            
+
             if (chartInstance.options.scales) {
                 Object.values(chartInstance.options.scales).forEach(scale => {
                     if (scale.ticks) scale.ticks.color = textCol;
@@ -349,7 +350,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (scale.title) scale.title.color = textCol;
                 });
             }
-            
+
             if (chartInstance.options.plugins && chartInstance.options.plugins.title) {
                 chartInstance.options.plugins.title.color = textCol;
             }
@@ -387,19 +388,29 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="card-body py-3">
                 <div class="row g-3 align-items-end">
                     <div class="col-lg-3 col-md-6 col-12">
-                        {{ components.dropdown(name="graph_focus", label="Graph Focus", options=[("all", "All Graphs"), ("cycle", "Cycle"), ("sex", "Sex"), ("body", "Body")], selected_value=request.args.get('graph_focus', 'all'), id="graph_focus", container_class="mb-0", onchange="setAnalyticsGraphFocus(this.value)") }}
+                        {{ components.dropdown(name="graph_focus", label="Graph Focus", options=[("all", "All Graphs"),
+                        ("cycle", "Cycle"), ("sex", "Sex"), ("body", "Body")],
+                        selected_value=request.args.get('graph_focus', 'all'), id="graph_focus", container_class="mb-0",
+                        onchange="setAnalyticsGraphFocus(this.value)") }}
                     </div>
                     <div class="col-lg-3 col-md-6 col-12">
-                        {{ components.dropdown(name="group_by", label="Group", options=[("daily", "Daily"), ("weekly", "Weekly"), ("monthly", "Monthly"), ("yearly", "Yearly")], selected_value=analytics_filters.group_by, id="group_by", container_class="mb-0", onchange="this.form.submit()") }}
+                        {{ components.dropdown(name="group_by", label="Group", options=[("daily", "Daily"), ("weekly",
+                        "Weekly"), ("monthly", "Monthly"), ("yearly", "Yearly")],
+                        selected_value=analytics_filters.group_by, id="group_by", container_class="mb-0",
+                        onchange="this.form.submit()") }}
                     </div>
                     <div class="col-lg-3 col-md-6 col-12">
-                        {{ components.dropdown(name="limit", label="Last N", options=[("all", "All"), ("1", "1"), ("5", "5"), ("10", "10"), ("20", "20"), ("50", "50")], selected_value=analytics_filters.limit, id="limit", container_class="mb-0", onchange="this.form.submit()") }}
+                        {{ components.dropdown(name="limit", label="Last N", options=[("all", "All"), ("1", "1"), ("5",
+                        "5"), ("10", "10"), ("20", "20"), ("50", "50")], selected_value=analytics_filters.limit,
+                        id="limit", container_class="mb-0", onchange="this.form.submit()") }}
                     </div>
                     <input type="hidden" name="cycle_limit" value="{{ cycle_history_filter.cycle_limit }}">
                     <input type="hidden" name="sex_limit" value="{{ sex_recent_filter.sex_limit }}">
                     <div class="col-lg-3 col-md-6 col-12 analytics-filter-actions">
-                        <button type="submit" class="btn btn-primary flex-fill"><i class="fas fa-filter me-1"></i>Apply</button>
-                        <a href="/analytics" class="btn btn-outline-secondary flex-fill"><i class="fas fa-rotate-left me-1"></i>Reset</a>
+                        <button type="submit" class="btn btn-primary flex-fill"><i
+                                class="fas fa-filter me-1"></i>Apply</button>
+                        <a href="/analytics" class="btn btn-outline-secondary flex-fill"><i
+                                class="fas fa-rotate-left me-1"></i>Reset</a>
                     </div>
                 </div>
             </div>
@@ -410,7 +421,8 @@ document.addEventListener('DOMContentLoaded', function () {
 <!-- SECTION 1: Period Analytics -->
 <div class="row mb-4" data-graph-focus="cycle">
     <div class="col-12">
-        {% call components.card(title="Period Summary", icon="fas fa-star text-primary", class="shadow-sm border-0", header_class="bg-white text-dark py-3") %}
+        {% call components.card(title="Period Summary", icon="fas fa-star text-primary", class="shadow-sm border-0",
+        header_class="bg-transparent py-3 border-0") %}
         <div class="row g-3 text-center">
             <div class="col-lg col-md-4 col-6">
                 {{ components.stat_card(title="Avg Cycle Length", value=fertility.average_cycle_length, unit="days",
@@ -438,7 +450,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <div class="row mb-4" id="menstrualCharts" data-graph-focus="cycle">
     <div class="col-lg-8 col-md-12">
         {% call components.card(title="Period Flow over Time", icon="fas fa-droplet text-danger", class="shadow-sm
-        h-100", header_class="bg-white text-dark border-0 pb-0") %}
+        h-100", header_class="bg-transparent border-0 pb-0") %}
         <div class="chart-container"
             style="height: 250px; margin: 0 auto; box-shadow: none; border-radius: 0; padding: 0;">
             <canvas id="amountChart"></canvas>
@@ -447,7 +459,7 @@ document.addEventListener('DOMContentLoaded', function () {
     </div>
     <div class="col-lg-4 col-md-12">
         {% call components.card(title="Symptom Frequency", icon="fas fa-allergies text-warning", class="shadow-sm
-        h-100", header_class="bg-white text-dark border-0 pb-0") %}
+        h-100", header_class="bg-transparent border-0 pb-0") %}
         <div class="chart-container"
             style="height: 250px; margin: 0 auto; box-shadow: none; border-radius: 0; padding: 0;"
             id="symptomsChartContainer">
@@ -462,48 +474,52 @@ document.addEventListener('DOMContentLoaded', function () {
 {% if cycle_history_rows and cycle_history_rows|length > 0 %}
 <div class="row mb-4" data-graph-focus="cycle">
     <div class="col-12">
-        {% call components.card(title="Cycle History Log", icon="fas fa-history text-secondary", class="shadow-sm", header_class="py-3") %}
+        {% call components.card(title="Cycle History Log", icon="fas fa-history text-secondary", class="shadow-sm",
+        header_class="py-3") %}
         <form method="GET" action="/analytics" class="row g-3 align-items-end mb-3">
             <input type="hidden" name="group_by" value="{{ analytics_filters.group_by }}">
             <input type="hidden" name="limit" value="{{ analytics_filters.limit }}">
             <input type="hidden" name="sex_limit" value="{{ sex_recent_filter.sex_limit }}">
             <div class="col-md-3 col-sm-6 col-12">
-                {{ components.dropdown(name="cycle_limit", label="Cycle History Last N", options=[("1", "1"), ("3", "3"), ("5", "5"), ("10", "10"), ("20", "20"), ("50", "50"), ("all", "All")], selected_value=cycle_history_filter.cycle_limit, id="analytics_cycle_limit", container_class="mb-0", onchange="this.form.submit()") }}
+                {{ components.dropdown(name="cycle_limit", label="Cycle History Last N", options=[("1", "1"), ("3",
+                "3"), ("5", "5"), ("10", "10"), ("20", "20"), ("50", "50"), ("all", "All")],
+                selected_value=cycle_history_filter.cycle_limit, id="analytics_cycle_limit", container_class="mb-0",
+                onchange="this.form.submit()") }}
             </div>
         </form>
         {% if analytics_filters.group_by == 'daily' %}
-            {% call components.table(headers=["Cycle Start Date", "Cycle Length (Days)", "Status"]) %}
-            {% for cycle in cycle_history_rows %}
-            <tr>
-                <td class="fw-bold ps-4">{{ cycle.start_date_str }}</td>
-                <td>{{ cycle.length }}</td>
-                <td class="pe-4 text-end">
-                    {% if cycle.is_complete %}
-                    <span class="badge bg-success">Completed</span>
-                    {% else %}
-                    <span class="badge bg-warning">Ongoing</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-            {% endcall %}
+        {% call components.table(headers=["Cycle Start Date", "Cycle Length (Days)", "Status"]) %}
+        {% for cycle in cycle_history_rows %}
+        <tr>
+            <td class="fw-bold ps-4">{{ cycle.start_date_str }}</td>
+            <td>{{ cycle.length }}</td>
+            <td class="pe-4 text-end">
+                {% if cycle.is_complete %}
+                <span class="badge bg-success">Completed</span>
+                {% else %}
+                <span class="badge bg-warning">Ongoing</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        {% endcall %}
         {% else %}
-            {% call components.table(headers=["Period", "Cycles", "Avg Cycle Length", "Status"]) %}
-            {% for cycle in cycle_history_rows %}
-            <tr>
-                <td class="fw-bold ps-4">{{ cycle.bucket_label }}</td>
-                <td>{{ cycle.cycle_count }}</td>
-                <td>{{ cycle.average_length }} days</td>
-                <td class="pe-4 text-end">
-                    {% if cycle.is_complete %}
-                    <span class="badge bg-success">Completed</span>
-                    {% else %}
-                    <span class="badge bg-warning">Ongoing</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-            {% endcall %}
+        {% call components.table(headers=["Period", "Cycles", "Avg Cycle Length", "Status"]) %}
+        {% for cycle in cycle_history_rows %}
+        <tr>
+            <td class="fw-bold ps-4">{{ cycle.bucket_label }}</td>
+            <td>{{ cycle.cycle_count }}</td>
+            <td>{{ cycle.average_length }} days</td>
+            <td class="pe-4 text-end">
+                {% if cycle.is_complete %}
+                <span class="badge bg-success">Completed</span>
+                {% else %}
+                <span class="badge bg-warning">Ongoing</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        {% endcall %}
         {% endif %}
         {% endcall %}
     </div>
@@ -512,40 +528,46 @@ document.addEventListener('DOMContentLoaded', function () {
 <!-- SECTION 4: Sex Analytics -->
 <div class="row mb-4" data-graph-focus="sex">
     <div class="col-12">
-        {% call components.card(title="Sex Summary", icon="fas fa-heart text-danger", class="shadow-sm border-0", header_class="py-3") %}
+        {% call components.card(title="Sex Summary", icon="fas fa-heart text-danger", class="shadow-sm border-0",
+        header_class="py-3") %}
         {% set intimacy_label = "No pattern yet" %}
         {% set intimacy_note = "Add entries to see a clearer picture" %}
         {% if sex_summary.total >= 5 %}
-            {% set intimacy_label = "Well documented" %}
-            {% set intimacy_note = "Enough context for trend reading" %}
+        {% set intimacy_label = "Well documented" %}
+        {% set intimacy_note = "Enough context for trend reading" %}
         {% elif sex_summary.total > 0 %}
-            {% set intimacy_label = "Early context" %}
-            {% set intimacy_note = "A few entries are available" %}
+        {% set intimacy_label = "Early context" %}
+        {% set intimacy_note = "A few entries are available" %}
         {% endif %}
         <div class="row g-3 text-center">
             <div class="col-lg-3 col-md-6 col-6">
                 {{ components.stat_card(title="Total Intimacy Entries", value=sex_summary.total, icon="fas fa-list") }}
             </div>
             <div class="col-lg-3 col-md-6 col-6">
-                {{ components.stat_card(title="Intimacy Wellbeing", value=intimacy_label, subtext=intimacy_note, icon="fas fa-heart-pulse") }}
+                {{ components.stat_card(title="Intimacy Wellbeing", value=intimacy_label, subtext=intimacy_note,
+                icon="fas fa-heart-pulse") }}
             </div>
             <div class="col-lg-3 col-md-6 col-6">
-                {{ components.stat_card(title="Most Common Type", value=sex_summary.most_common_type, subtext=sex_summary.most_common_type_count ~ " entries", icon="fas fa-heart-circle-check") }}
+                {{ components.stat_card(title="Most Common Type", value=sex_summary.most_common_type,
+                subtext=sex_summary.most_common_type_count ~ " entries", icon="fas fa-heart-circle-check") }}
             </div>
             <div class="col-lg-3 col-md-6 col-12">
-                {{ components.stat_card(title="Most Common Position", value=sex_summary.most_common_position, subtext=sex_summary.most_common_position_count ~ " entries", icon="fas fa-person") }}
+                {{ components.stat_card(title="Most Common Position", value=sex_summary.most_common_position,
+                subtext=sex_summary.most_common_position_count ~ " entries", icon="fas fa-person") }}
             </div>
         </div>
         <div class="row g-3 mt-1" id="sexCharts">
             <div class="col-lg-6 col-12">
                 <h6 class="fw-bold mb-2">Sex Type Distribution</h6>
-                <div class="chart-container" style="height: 220px; margin: 0 auto; box-shadow: none; border-radius: 0; padding: 0;">
+                <div class="chart-container"
+                    style="height: 220px; margin: 0 auto; box-shadow: none; border-radius: 0; padding: 0;">
                     <canvas id="sexTypeChart"></canvas>
                 </div>
             </div>
             <div class="col-lg-6 col-12">
                 <h6 class="fw-bold mb-2">Position Distribution</h6>
-                <div class="chart-container" style="height: 220px; margin: 0 auto; box-shadow: none; border-radius: 0; padding: 0;">
+                <div class="chart-container"
+                    style="height: 220px; margin: 0 auto; box-shadow: none; border-radius: 0; padding: 0;">
                     <canvas id="sexPositionChart"></canvas>
                 </div>
             </div>
@@ -556,12 +578,21 @@ document.addEventListener('DOMContentLoaded', function () {
             <input type="hidden" name="limit" value="{{ analytics_filters.limit }}">
             <input type="hidden" name="cycle_limit" value="{{ cycle_history_filter.cycle_limit }}">
             <div class="col-md-3 col-sm-6 col-12">
-                {{ components.dropdown(name="sex_limit", label="Recent Sex Last N", options=[("1", "1"), ("3", "3"), ("5", "5"), ("10", "10"), ("20", "20"), ("50", "50"), ("all", "All")], selected_value=sex_recent_filter.sex_limit, id="analytics_sex_limit", container_class="mb-0", onchange="this.form.submit()") }}
+                {{ components.dropdown(name="sex_limit", label="Recent Sex Last N", options=[("1", "1"), ("3", "3"),
+                ("5", "5"), ("10", "10"), ("20", "20"), ("50", "50"), ("all", "All")],
+                selected_value=sex_recent_filter.sex_limit, id="analytics_sex_limit", container_class="mb-0",
+                onchange="this.form.submit()") }}
             </div>
         </form>
         <div class="table-responsive mt-3">
             <table class="table table-sm align-middle mb-0">
-                <thead><tr><th>Date</th><th>Type</th><th>Position</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Position</th>
+                    </tr>
+                </thead>
                 <tbody>
                     {% for entry in sex_summary.recent %}
                     <tr>
@@ -580,7 +611,8 @@ document.addEventListener('DOMContentLoaded', function () {
 <!-- SECTION 5: Body Metrics Overview -->
 <div class="row mb-4" data-graph-focus="body">
     <div class="col-12">
-        {% call components.card(title="Body Metrics Summary", icon="fas fa-weight text-success", class="shadow-sm border-0", header_class="bg-white text-dark py-3") %}
+        {% call components.card(title="Body Metrics Summary", icon="fas fa-weight text-success", class="shadow-sm
+        border-0", header_class="bg-transparent py-3 border-0") %}
         <div class="row g-3 text-center mb-4">
             <div class="col-lg col-md-4 col-6">
                 {% set wt_class = "text-muted" %}
@@ -608,10 +640,12 @@ document.addEventListener('DOMContentLoaded', function () {
                         badge_color=bmi_badge, badge_text=weight_height.bmi.category, icon="fas fa-heartbeat") }}
                     </div>
                     <div class="col-lg col-md-4 col-6">
-                        {{ components.stat_card(title="Body Composition Range", value=weight_height.bmi.category, subtext="Based on latest BMI", icon="fas fa-circle-check") }}
+                        {{ components.stat_card(title="Body Composition Range", value=weight_height.bmi.category,
+                        subtext="Based on latest BMI", icon="fas fa-circle-check") }}
                     </div>
                     <div class="col-lg col-md-4 col-6">
-                        {{ components.stat_card(title="Trend Steadiness", value=weight_height.weight.stability, subtext="BMI: "
+                        {{ components.stat_card(title="Trend Steadiness", value=weight_height.weight.stability,
+                        subtext="BMI: "
                         ~ weight_height.bmi.stability, icon="fas fa-tachometer-alt") }}
                     </div>
             </div>
@@ -620,7 +654,7 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="row g-3">
                 <div class="col-md-6">
                     <div class="card shadow-sm border-0 metric-summary-card">
-                        <div class="card-header bg-transparent text-dark py-2 border-0">
+                        <div class="card-header bg-transparent py-2 border-0">
                             <h6 class="mb-0 fw-bold"><i class="fas fa-weight-hanging text-primary me-2"></i> Weight
                                 Summary Stats</h6>
                         </div>
@@ -649,7 +683,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
                 <div class="col-md-6">
                     <div class="card shadow-sm border-0 metric-summary-card">
-                        <div class="card-header bg-transparent text-dark py-2 border-0">
+                        <div class="card-header bg-transparent py-2 border-0">
                             <h6 class="mb-0 fw-bold"><i class="fas fa-heartbeat text-danger me-2"></i> BMI Summary Stats
                             </h6>
                         </div>
@@ -685,7 +719,7 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="row mb-4" id="bodyMetricsCharts" data-graph-focus="body">
         <div class="col-lg-6 col-md-12 mb-3">
             {% call components.card(title="Weight Trend (kg)", icon="fas fa-weight-hanging text-primary",
-            class="shadow-sm h-100", header_class="bg-white text-dark border-0 pb-0") %}
+            class="shadow-sm h-100", header_class="bg-transparent border-0 pb-0") %}
             <div class="chart-container"
                 style="height: 250px; margin: 0 auto; box-shadow: none; border-radius: 0; padding: 0;">
                 <canvas id="weightTrendChart"></canvas>
@@ -694,7 +728,7 @@ document.addEventListener('DOMContentLoaded', function () {
         </div>
         <div class="col-lg-6 col-md-12 mb-3">
             {% call components.card(title="BMI Progression", icon="fas fa-heartbeat text-danger", class="shadow-sm
-            h-100", header_class="bg-white text-dark border-0 pb-0") %}
+            h-100", header_class="bg-transparent border-0 pb-0") %}
             <div class="chart-container"
                 style="height: 250px; margin: 0 auto; box-shadow: none; border-radius: 0; padding: 0;">
                 <canvas id="bmiTrendChart"></canvas>

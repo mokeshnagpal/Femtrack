@@ -283,3 +283,76 @@ JSON endpoints require session authorization and return details or error message
 * **Frontend**: Bootstrap 5, Font Awesome 6 icons, Chart.js visualizations
 * **Email**: SMTP server routing for one-time password (OTP) delivery (optional)
 * **Deployment**: Gunicorn WSGI server (production)
+
+---
+
+## Database Structure
+
+FemTrack uses **Google Cloud Firestore** (a NoSQL document store) to persist profile preferences and logs. The database is organized under a hierarchical document structure:
+
+### 1. `users` Collection
+- **Path**: `users/{email}`
+- **Document Fields**:
+  - `email` (string): The administrator's verified email address.
+
+#### `users_setting` Subcollection
+- **Path**: `users/{email}/users_setting/settings`
+- **Document Fields**:
+  - `email` (string): User email copy.
+  - `password` (bytes): The bcrypt-encrypted password hash.
+  - `view_password` (string): Plaintext view-only partner access password.
+  - `created_at` (timestamp): Account creation timestamp.
+  - `custom_symptoms` (array of maps): Custom symptoms defined by the user. Each map contains:
+    - `symptom_name` (string): Machine-readable identifier.
+    - `display_name` (string): Human-readable name.
+    - `has_intensity` (boolean): Whether it supports Low/Medium/High tracking.
+  - `symptom_overrides` (map): Overrides for default symptoms formatting.
+  - `custom_sex_positions` (array of strings): Custom sexual activity positions created by the user.
+  - `defaults` (map): User-configured default form pre-selections:
+    - `flow_amount` (number): Default flow volume (1-10).
+    - `sex_type` (string): Pre-selected default intimacy type.
+    - `position` (string): Pre-selected default position.
+    - `craving_intensity` (string): Pre-selected default craving intensity.
+    - `irritation_intensity` (string): Pre-selected default irritation intensity.
+    - `diarrhea_intensity` (string): Pre-selected default diarrhea intensity.
+    - `weird_intensity` (string): Pre-selected default feeling weird intensity.
+
+#### `period_entries` Subcollection
+- **Path**: `users/{email}/period_entries/{document_id}`
+- **Document Fields**:
+  - `user_id` (string): Owner's email.
+  - `date` (string): Log date in `YYYY-MM-DD` format.
+  - `notes` (string): Optional text notes.
+  - `created_at` (timestamp): Record creation time.
+  - `updated_at` (timestamp): Record last modification time.
+  - `symptoms` (array of maps): List of recorded symptoms for the day. Each map contains:
+    - `name` (string): The symptom key (e.g. `period`, `craving`, `irritation`).
+    - *For standard symptoms*:
+      - `intensity` (string): Intensity level (`low`, `medium`, or `high`).
+    - *For core `period` symptom*:
+      - `flow_amount` (number): Flow scale (1-10) or `null`.
+      - `start_marked` (boolean): Flag marking the start of a cycle.
+      - `start_time` (string/null): Specific start time.
+      - `end_marked` (boolean): Flag closing the cycle flow.
+      - `end_time` (string/null): Specific end time.
+
+#### `weight_height_entries` Subcollection
+- **Path**: `users/{email}/weight_height_entries/{document_id}`
+- **Document Fields**:
+  - `date` (string): Record date in `YYYY-MM-DD` format.
+  - `weight` (number): Body weight in kilograms.
+  - `height` (number): Height in centimeters.
+  - `bmi` (number): Computed Body Mass Index.
+  - `bmi_category` (string): BMI status (e.g. `Normal`, `Overweight`).
+  - `created_at` (timestamp): Record creation time.
+  - `updated_at` (timestamp): Record update time.
+
+#### `sex_entries` Subcollection
+- **Path**: `users/{email}/sex_entries/{document_id}`
+- **Document Fields**:
+  - `date` (string): Intimacy date in `YYYY-MM-DD` format.
+  - `sex_type` (string): Type of intimacy (`Soft`, `Hard (Protected)`, `Hard (Pullout)`, `Hard (Natural)`).
+  - `position` (string): Position used (Missionary, Doggy, etc.).
+  - `notes` (string): Optional notes.
+  - `created_at` (timestamp): Record creation time.
+  - `updated_at` (timestamp): Record update time.

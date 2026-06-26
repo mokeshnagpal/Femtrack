@@ -73,5 +73,45 @@ function copyViewPassword() {
         window.showFemtrackToast?.('View-only password copied', 'success');
     });
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Change password form validation
+    const changePasswordForm = document.querySelector('input[name="change_password"]')?.form;
+    if (changePasswordForm) {
+        changePasswordForm.addEventListener('submit', function(e) {
+            const errors = [];
+            const oldPass = document.getElementById('old_password')?.value || '';
+            const newPass = document.getElementById('new_password')?.value || '';
+            const confirmPass = document.getElementById('confirm_password')?.value || '';
+
+            if (!oldPass) errors.push('Current password is required');
+            if (!newPass) errors.push('New password is required');
+            if (newPass !== confirmPass) errors.push('New passwords do not match');
+
+            if (errors.length > 0) {
+                e.preventDefault();
+                window.showFemtrackErrors?.(errors);
+            }
+        });
+    }
+
+    // 2. Change view-only password form validation
+    const changeViewPasswordForm = document.querySelector('input[name="change_view_password"]')?.form;
+    if (changeViewPasswordForm) {
+        changeViewPasswordForm.addEventListener('submit', function(e) {
+            const errors = [];
+            const newViewPass = document.getElementById('new_view_password')?.value || '';
+            const confirmViewPass = document.getElementById('confirm_view_password')?.value || '';
+
+            if (!newViewPass) errors.push('New view-only password is required');
+            if (newViewPass !== confirmViewPass) errors.push('New view-only passwords do not match');
+
+            if (errors.length > 0) {
+                e.preventDefault();
+                window.showFemtrackErrors?.(errors);
+            }
+        });
+    }
+});
 </script>
 {% endblock %}

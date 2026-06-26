@@ -14,7 +14,7 @@
   <!-- Calendar icon on left -->
   <g transform="translate(150, 280)">
     <rect x="0" y="0" width="120" height="140" rx="8" fill="white" opacity="0.95"/>
-    <rect x="0" y="0" width="120" height="35" fill="#f5576c" rx="8"/>
+    <rect x="0" y="0" width="120" height="35" fill="#ec4899" rx="8"/>
     <circle cx="30" cy="80" r="12" fill="#667eea"/>
     <circle cx="90" cy="80" r="12" fill="#667eea"/>
     <circle cx="30" cy="120" r="12" fill="#667eea"/>

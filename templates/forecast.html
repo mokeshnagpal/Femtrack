@@ -6,8 +6,9 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const cycleData = {{ cycle_data | tojson }};
+    document.addEventListener('DOMContentLoaded', function () {
+        const cycleData = {{ cycle_data | tojson
+    }};
     const rootStyles = getComputedStyle(document.documentElement);
     const textColor = (rootStyles.getPropertyValue('--text-color') || '#2c3e50').trim();
     const borderColor = (rootStyles.getPropertyValue('--border-color') || '#e0e0e0').trim();
@@ -38,7 +39,7 @@ document.addEventListener('DOMContentLoaded', function () {
             ovulation: { label: 'Fertile', color: '#9f2f55', risk: 'High', note: 'Peak window' },
             luteal: { label: 'Luteal', color: '#2f855a', risk: 'Low', note: 'Post-ovulation' }
         };
-        return phases[phase] || { label: 'Unknown', color: '#6c757d', risk: 'Unknown', note: 'Not classified' };
+        return phases[phase] || { label: 'Unknown', color: '#6f3a75', risk: 'Unknown', note: 'Not classified' };
     }
 
     function fertilityScore(day) {
@@ -149,13 +150,13 @@ document.addEventListener('DOMContentLoaded', function () {
             startOffset = ovulationDay + 2;
             endOffset = cycleLength - 1;
         }
-        
+
         const startDate = new Date(cycleStart.getTime());
         startDate.setDate(startDate.getDate() + startOffset);
-        
+
         const endDate = new Date(cycleStart.getTime());
         endDate.setDate(endDate.getDate() + endOffset);
-        
+
         const startIso = toLocalIsoDate(startDate);
         const endIso = toLocalIsoDate(endDate);
 
@@ -340,12 +341,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const modalType = document.getElementById('modalSexType');
         const modalPosition = document.getElementById('modalSexPosition');
         const modalNotes = document.getElementById('modalSexNotes');
-        
+
         const modalPhase = document.getElementById('modalSexPhase');
         const modalProbLabel = document.getElementById('modalSexProbLabel');
         const modalProbBar = document.getElementById('modalSexProbBar');
         const modalProbScore = document.getElementById('modalSexProbScore');
-        
+
         const modalPregBar = document.getElementById('modalSexPregBar');
         const modalPregLabel = document.getElementById('modalSexPregLabel');
 
@@ -430,13 +431,13 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    window.viewIntimacyForDate = function(dateStr) {
+    window.viewIntimacyForDate = function (dateStr) {
         const modalEl = document.getElementById('viewIntimacyModal');
         if (modalEl) {
             populateIntimacyModal(dateStr);
             const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
             bsModal.show();
-            
+
             if (forecastDayTooltip) {
                 forecastDayTooltip.classList.remove('show');
             }
@@ -653,10 +654,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 pointStyle: 'star',
                 pointRadius: 9,
                 pointHoverRadius: 12,
-                pointBackgroundColor: '#f5576c',
+                pointBackgroundColor: '#ec4899',
                 pointBorderColor: '#ffffff',
                 pointBorderWidth: 2,
-                borderColor: '#f5576c'
+                borderColor: '#ec4899'
             }] : []), ...(trend ? [trend] : [])]
         };
 
@@ -679,12 +680,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     legend: { position: 'bottom', labels: { color: textColor } },
                     tooltip: {
                         callbacks: {
-                            title: function(context) {
+                            title: function (context) {
                                 const index = context[0].dataIndex;
                                 const day = currentDays[index];
                                 return `${formatDate(day.date)} (Day ${day.day})`;
                             },
-                            label: function(context) {
+                            label: function (context) {
                                 const index = context.dataIndex;
                                 const day = currentDays[index];
                                 const score = context.raw;
@@ -955,11 +956,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const updateInstance = (chartInstance) => {
             if (!chartInstance) return;
-            
+
             if (chartInstance.options.plugins && chartInstance.options.plugins.legend) {
                 chartInstance.options.plugins.legend.labels.color = textCol;
             }
-            
+
             if (chartInstance.options.scales) {
                 Object.values(chartInstance.options.scales).forEach(scale => {
                     if (scale.ticks) scale.ticks.color = textCol;
@@ -967,7 +968,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (scale.title) scale.title.color = textCol;
                 });
             }
-            
+
             if (chartInstance.options.plugins && chartInstance.options.plugins.title) {
                 chartInstance.options.plugins.title.color = textCol;
             }
@@ -1017,7 +1018,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     .forecast-window-past {
-        border-left: 4px solid #6c757d !important;
+        border-left: 4px solid var(--secondary-color) !important;
     }
 
     .forecast-window-current {
@@ -1030,7 +1031,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     html[data-bs-theme="dark"] .forecast-window-predicted {
-        border-left-color: #f093fb !important;
+        border-left-color: #a78bfa !important;
     }
 
     .badge-predicted {
@@ -1041,8 +1042,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     html[data-bs-theme="dark"] .badge-predicted {
         background-color: rgba(111, 58, 117, 0.25) !important;
-        color: #f093fb !important;
-        border-color: rgba(240, 147, 251, 0.4) !important;
+        color: #a78bfa !important;
+        border-color: rgba(167, 139, 250, 0.4) !important;
     }
 
     .forecast-static-card {
@@ -1071,7 +1072,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     .forecast-detail-label {
         display: block;
-        color: var(--muted-color, #6c757d);
+        color: var(--muted-color, #6f3a75);
         font-size: 0.78rem;
         font-weight: 700;
         text-transform: uppercase;
@@ -1126,7 +1127,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     .forecast-day-risk {
         font-size: 0.72rem;
-        color: var(--muted-color, #6c757d);
+        color: var(--muted-color, #6f3a75);
         font-weight: 700;
     }
 
@@ -1134,7 +1135,7 @@ document.addEventListener('DOMContentLoaded', function () {
         position: absolute;
         bottom: 3px;
         right: 4px;
-        color: #f5576c;
+        color: #ec4899;
         font-size: 0.65rem;
     }
 
@@ -1175,7 +1176,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     .forecast-day-tooltip-meta {
         font-size: 0.78rem;
-        color: var(--muted-color, #6c757d);
+        color: var(--muted-color, #6f3a75);
         margin-bottom: 0.65rem;
     }
 
@@ -1193,12 +1194,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     .forecast-day-tooltip-grid span {
-        color: var(--muted-color, #6c757d);
+        color: var(--muted-color, #6f3a75);
     }
 
     .forecast-day-tooltip-logged {
         font-size: 0.8rem;
-        color: #f5576c;
+        color: #ec4899;
         margin-bottom: 0.55rem;
     }
 
@@ -1254,12 +1255,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     .forecast-guide-empty {
-        color: var(--muted-color, #6c757d);
+        color: var(--muted-color, #6f3a75);
         font-size: 0.9rem;
         padding: 0.5rem 0;
     }
 
-    .forecast-overview-grid > [class*="col-"] {
+    .forecast-overview-grid>[class*="col-"] {
         display: flex;
     }
 
@@ -1331,17 +1332,34 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="row mb-4">
         <div class="col-12 text-center">
             <h2 class="fw-bold mb-1"><i class="fas fa-wand-magic-sparkles text-primary me-2"></i>Forecast</h2>
-            <p class="text-muted mb-3">Cycle predictions, fertility probability, and recent health context in one view.</p>
+            <p class="text-muted mb-3">Cycle predictions, fertility probability, and recent health context in one view.
+            </p>
         </div>
     </div>
 
-    {% if not cycle_data or not cycle_data.previous_cycles or cycle_data.previous_cycles|length == 0 %}
+    {% if not cycle_data or not cycle_data.period_dates or cycle_data.period_dates|length == 0 %}
     <div class="row">
         <div class="col-12">
-            {% call components.card(title="More Data Needed", icon="fas fa-circle-info text-primary", class="shadow-sm border-0") %}
+            {% call components.card(title="No Period Data Logged", icon="fas fa-circle-info text-primary",
+            class="shadow-sm border-0") %}
             <div class="text-center py-4">
-                <h5 class="fw-bold">Add at least two marked period starts</h5>
-                <p class="text-muted mb-3">Forecasts become useful once the app can compare completed cycles.</p>
+                <h5 class="fw-bold">No period starts logged yet</h5>
+                <p class="text-muted mb-3">Add a period entry and check <strong>'Start of Cycle (First day of
+                        period)'</strong> to begin tracking your cycle.</p>
+                {{ components.btn(text="Add Period Entry", variant="primary", href="/input", icon="fas fa-plus") }}
+            </div>
+            {% endcall %}
+        </div>
+    </div>
+    {% elif cycle_data.previous_cycles|length == 0 %}
+    <div class="row">
+        <div class="col-12">
+            {% call components.card(title="More Data Needed for Forecasting", icon="fas fa-chart-line text-warning",
+            class="shadow-sm border-0") %}
+            <div class="text-center py-4">
+                <h5 class="fw-bold">Only one period start logged</h5>
+                <p class="text-muted mb-3">Forecasting requires at least two completed cycle starts to calculate your
+                    average cycle length. Please log the first day of your next period when it starts.</p>
                 {{ components.btn(text="Add Period Entry", variant="primary", href="/input", icon="fas fa-plus") }}
             </div>
             {% endcall %}
@@ -1353,31 +1371,42 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="row g-4 mb-4">
         <!-- Card 1: Current Phase Window -->
         <div class="col-md-6 col-lg-6">
-            <div class="card h-100 shadow border-0" id="todayCurrentPhaseWindowCard" style="border-left: 5px solid var(--primary-color) !important;">
+            <div class="card h-100 shadow border-0" id="todayCurrentPhaseWindowCard"
+                style="border-left: 5px solid var(--primary-color) !important;">
                 <div class="card-body p-4 d-flex flex-column justify-content-between">
                     <div>
                         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-1">
-                            <span class="text-muted text-uppercase fw-bold small" style="font-size: 0.72rem; letter-spacing: 0.5px;">Current Phase Window</span>
-                            <span class="badge bg-secondary" id="todayCurrentPhaseWindowBadge" style="font-size: 0.65rem;">From data</span>
+                            <span class="text-muted text-uppercase fw-bold small"
+                                style="font-size: 0.72rem; letter-spacing: 0.5px;">Current Phase Window</span>
+                            <span class="badge bg-secondary" id="todayCurrentPhaseWindowBadge"
+                                style="font-size: 0.65rem;">From data</span>
                         </div>
-                        <h4 class="fw-bold mb-3 text-primary" id="todayCurrentPhaseWindow" style="font-size: 1.3rem;">--</h4>
-                        
+                        <h4 class="fw-bold mb-3 text-primary" id="todayCurrentPhaseWindow" style="font-size: 1.3rem;">--
+                        </h4>
+
                         <div class="mb-2" style="font-size: 0.88rem;">
-                            <span class="text-muted font-weight-bold">Current Phase:</span> <strong class="text-dark" id="todayCurrentPhaseWindowName">{{ cycle_data.current_cycle_phase }}</strong>
+                            <span class="text-muted font-weight-bold">Current Phase:</span> <strong class="text-muted"
+                                id="todayCurrentPhaseWindowName">{{ cycle_data.current_cycle_phase }}</strong>
                         </div>
                         <div class="mb-3" style="font-size: 0.88rem;">
-                            <span class="text-muted font-weight-bold" id="todayCurrentPhaseWindowMetricLabel">Avg Period Length:</span> <strong class="text-dark" id="todayCurrentPhaseWindowMetricValue">{{ cycle_data.average_period_length }} days</strong>
+                            <span class="text-muted font-weight-bold" id="todayCurrentPhaseWindowMetricLabel">Avg Period
+                                Length:</span> <strong class="text-dark" id="todayCurrentPhaseWindowMetricValue">{{
+                                cycle_data.average_period_length }} days</strong>
                         </div>
-                        
+
                         <div class="mt-3 pt-3 border-top d-none" id="todayContextExplanationContainer">
-                            <small class="text-muted d-block" id="todayContextExplanation" style="font-size: 0.8rem; line-height: 1.35;">
-                                Today has a <strong class="text-primary" id="todayContextExplanationScore">--% probability</strong> of being in the {{ cycle_data.current_cycle_phase }} phase.
+                            <small class="text-muted d-block" id="todayContextExplanation"
+                                style="font-size: 0.8rem; line-height: 1.35;">
+                                Today has a <strong class="text-primary" id="todayContextExplanationScore">--%
+                                    probability</strong> of being in the {{ cycle_data.current_cycle_phase }} phase.
                             </small>
                         </div>
                     </div>
-                    
-                    <div class="pt-3 border-top mt-3 d-none justify-content-between align-items-center flex-wrap gap-2" id="todayIntimacyFooter">
-                        <button type="button" class="btn btn-danger btn-sm px-2" id="btnViewTodayIntimacy" data-bs-toggle="modal" data-bs-target="#viewIntimacyModal">
+
+                    <div class="pt-3 border-top mt-3 d-none justify-content-between align-items-center flex-wrap gap-2"
+                        id="todayIntimacyFooter">
+                        <button type="button" class="btn btn-danger btn-sm px-2" id="btnViewTodayIntimacy"
+                            data-bs-toggle="modal" data-bs-target="#viewIntimacyModal">
                             <i class="fas fa-heart me-1"></i> Intimacy Logged
                         </button>
                     </div>
@@ -1387,20 +1416,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
         <!-- Card 2: Next Phase Window -->
         <div class="col-md-6 col-lg-6">
-            <div class="card h-100 shadow border-0" id="todayNextPhaseWindowCard" style="border-left: 5px solid var(--secondary-color) !important;">
+            <div class="card h-100 shadow border-0" id="todayNextPhaseWindowCard"
+                style="border-left: 5px solid var(--secondary-color) !important;">
                 <div class="card-body p-4 d-flex flex-column justify-content-between">
                     <div>
                         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-1">
-                            <span class="text-muted text-uppercase fw-bold small" style="font-size: 0.72rem; letter-spacing: 0.5px;">Next Phase Window</span>
-                             <span class="badge badge-predicted" id="todayNextPhaseWindowBadge" style="font-size: 0.65rem;">Predicted</span>
+                            <span class="text-muted text-uppercase fw-bold small"
+                                style="font-size: 0.72rem; letter-spacing: 0.5px;">Next Phase Window</span>
+                            <span class="badge badge-predicted" id="todayNextPhaseWindowBadge"
+                                style="font-size: 0.65rem;">Predicted</span>
                         </div>
-                        <h4 class="fw-bold mb-3 text-primary" id="todayNextPhaseWindow" style="font-size: 1.3rem;">--</h4>
-                        
+                        <h4 class="fw-bold mb-3 text-primary" id="todayNextPhaseWindow" style="font-size: 1.3rem;">--
+                        </h4>
+
                         <div class="mb-2" style="font-size: 0.88rem;">
-                            <span class="text-muted font-weight-bold">Predicted Phase:</span> <strong class="text-dark" id="todayNextPhaseWindowName">--</strong>
+                            <span class="text-muted font-weight-bold">Predicted Phase:</span> <strong class="text-dark"
+                                id="todayNextPhaseWindowName">--</strong>
                         </div>
                         <div class="mb-3" style="font-size: 0.88rem;">
-                            <span class="text-muted font-weight-bold" id="todayNextPhaseWindowMetricLabel">Avg Period Length:</span> <strong class="text-dark" id="todayNextPhaseWindowMetricValue">--</strong>
+                            <span class="text-muted font-weight-bold" id="todayNextPhaseWindowMetricLabel">Avg Period
+                                Length:</span> <strong class="text-dark"
+                                id="todayNextPhaseWindowMetricValue">--</strong>
                         </div>
                     </div>
                 </div>
@@ -1417,22 +1453,27 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div>
                         <span class="text-muted text-uppercase fw-bold small d-block mb-1">Cycle Baseline</span>
                         <h4 class="fw-bold mb-3 text-secondary"><i class="fas fa-chart-pie me-2"></i>Typical Cycle</h4>
-                        
+
                         <div class="mb-4 pt-2">
                             <div class="text-muted fw-bold mb-2" style="font-size: 0.95rem;">Cycle Length:</div>
-                            <strong class="fs-3 text-dark">{{ cycle_data.average_cycle_length }} <span class="fs-5 text-muted">days</span></strong>
+                            <strong class="fs-3 text-dark">{{ cycle_data.average_cycle_length }} <span
+                                    class="fs-5 text-muted">days</span></strong>
                         </div>
                         <div class="mb-4">
                             <div class="text-muted fw-bold mb-2" style="font-size: 0.95rem;">Regularity:</div>
                             <span class="badge bg-success fs-5">{{ cycle_data.cycle_regularity_score }}</span>
                         </div>
                     </div>
-                    
+
                     <div class="pt-3 border-top">
-                        <small class="text-muted d-block" style="font-size: 0.78rem; line-height: 1.35;">Prediction confidence for this cycle is:</small>
+                        <small class="text-muted d-block" style="font-size: 0.78rem; line-height: 1.35;">Prediction
+                            confidence for this cycle is:</small>
                         <div class="d-flex align-items-center gap-2">
                             <div class="progress flex-grow-1" style="height: 8px;">
-                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ cycle_data.fertility_confidence_score }}%;" aria-valuenow="{{ cycle_data.fertility_confidence_score }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                <div class="progress-bar bg-success" role="progressbar"
+                                    style="width: {{ cycle_data.fertility_confidence_score }}%;"
+                                    aria-valuenow="{{ cycle_data.fertility_confidence_score }}" aria-valuemin="0"
+                                    aria-valuemax="100"></div>
                             </div>
                             <span class="fw-bold text-success small">{{ cycle_data.fertility_confidence_score }}%</span>
                         </div>
@@ -1443,7 +1484,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         <!-- Cycle Trend Chart -->
         <div class="col-md-12 col-lg-9">
-            {% call components.card(title="Cycle Trend", icon="fas fa-chart-line text-primary", class="shadow border-0 h-100") %}
+            {% call components.card(title="Cycle Trend", icon="fas fa-chart-line text-primary", class="shadow border-0
+            h-100") %}
             <div class="chart-container" style="height: 320px; position: relative;">
                 <canvas id="cycleTrendsChart"></canvas>
             </div>
@@ -1454,16 +1496,19 @@ document.addEventListener('DOMContentLoaded', function () {
     <!-- ROW 3: Focus Dropdown -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card shadow-sm border-1 border-light">
-                <div class="card-body p-3 bg-light rounded-3">
-                    <div class="row align-items-center g-3">
-                        <div class="col-md-8">
-                            <h5 class="fw-bold mb-1 text-primary"><i class="fas fa-sliders-h me-2"></i>Cycle Phase Focus</h5>
-                            <p class="text-muted small mb-0">Select a phase to focus the probability forecast graph and calendars below.</p>
-                        </div>
-                        <div class="col-md-4">
-                            {{ components.dropdown(name="forecast_mode", label="", options=[("menstruation", "Period Phase"), ("follicular", "Building Phase"), ("ovulation", "Fertile Phase"), ("luteal", "Luteal Phase")], selected_value="menstruation", id="forecast_mode", container_class="mb-0") }}
-                        </div>
+            <div class="forecast-focus-bar shadow-sm">
+                <div class="row align-items-center g-3">
+                    <div class="col-md-8">
+                        <h5 class="fw-bold mb-1 text-primary"><i class="fas fa-sliders-h me-2"></i>Cycle Phase Focus
+                        </h5>
+                        <p class="text-muted small mb-0">Select a phase to focus the probability forecast graph and
+                            calendars below.</p>
+                    </div>
+                    <div class="col-md-4">
+                        {{ components.dropdown(name="forecast_mode", label="", options=[("menstruation", "Period
+                        Phase"), ("follicular", "Building Phase"), ("ovulation", "Fertile Phase"), ("luteal",
+                        "Luteal Phase")], selected_value="menstruation", id="forecast_mode", container_class="mb-0")
+                        }}
                     </div>
                 </div>
             </div>
@@ -1473,7 +1518,8 @@ document.addEventListener('DOMContentLoaded', function () {
     <!-- ROW 4: Phase Forecast Graph -->
     <div class="row mb-4">
         <div class="col-12">
-            {% call components.card(title="Phase Forecast & Logged Events", icon="fas fa-chart-line text-danger", class="shadow border-0") %}
+            {% call components.card(title="Phase Forecast & Logged Events", icon="fas fa-chart-line text-danger",
+            class="shadow border-0") %}
             <h6 class="fw-bold mb-3" id="probabilityChartTitle">Period Phase Forecast</h6>
             <div class="chart-container" style="height: 300px; position: relative;">
                 <canvas id="fertilityProbabilityChart"></canvas>
@@ -1488,18 +1534,21 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="row g-4 mb-4">
         {% if cycle_data.current_cycle and cycle_data.current_cycle.is_current %}
         <div class="col-12" id="current_cycle_wrapper">
-            {% call components.card(title="Current Cycle", icon="fas fa-calendar-day text-primary", class="shadow border-0") %}
+            {% call components.card(title="Current Cycle", icon="fas fa-calendar-day text-primary", class="shadow
+            border-0") %}
             <div id="currentPhaseCalendar" class="forecast-phase-grid"></div>
             {% endcall %}
         </div>
         {% endif %}
         <div class="col-12">
-            {% call components.card(title="Upcoming Cycle", icon="fas fa-calendar-plus text-primary", class="shadow border-0") %}
+            {% call components.card(title="Upcoming Cycle", icon="fas fa-calendar-plus text-primary", class="shadow
+            border-0") %}
             <div id="upcomingPhaseCalendar" class="forecast-phase-grid"></div>
             {% endcall %}
         </div>
         <div class="col-12">
-            {% call components.card(title="Previous Cycle", icon="fas fa-clock-rotate-left text-secondary", class="shadow border-0") %}
+            {% call components.card(title="Previous Cycle", icon="fas fa-clock-rotate-left text-secondary",
+            class="shadow border-0") %}
             <div id="previousPhaseCalendar" class="forecast-phase-grid"></div>
             {% endcall %}
         </div>
@@ -1510,20 +1559,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 <!-- View Intimacy Modal -->
-<div class="modal fade" id="viewIntimacyModal" tabindex="-1" aria-labelledby="viewIntimacyModalLabel" aria-hidden="true">
+<div class="modal fade" id="viewIntimacyModal" tabindex="-1" aria-labelledby="viewIntimacyModalLabel"
+    aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content shadow-lg border-0 bg-body">
-            <div class="modal-header text-white py-3" style="background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);">
+            <div class="modal-header text-white py-3"
+                style="background: linear-gradient(135deg, #ec4899 0%, #a78bfa 100%);">
                 <h6 class="modal-title fw-bold fs-5" id="viewIntimacyModalLabel">
                     <i class="fas fa-heart me-2 text-white"></i>Intimacy Details
                 </h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
                 <div class="row g-4">
                     <!-- Column 1: Logged Activity -->
                     <div class="col-12 col-md-6">
-                        <div class="p-3 rounded h-100" style="background-color: var(--metric-bg); border: 1px solid var(--border-color);">
+                        <div class="p-3 rounded h-100"
+                            style="background-color: var(--metric-bg); border: 1px solid var(--border-color);">
                             <h6 class="fw-bold mb-3 text-danger d-flex align-items-center">
                                 <i class="fas fa-heart me-2 fs-5"></i>Logged Activity
                             </h6>
@@ -1534,51 +1587,67 @@ document.addEventListener('DOMContentLoaded', function () {
                                 </div>
                                 <div>
                                     <small class="text-muted d-block mb-1 font-weight-bold">Intimacy Type</small>
-                                    <span class="badge py-2 px-3 font-weight-bold" id="modalSexType" style="font-size: 0.85rem; background-color: rgba(245, 87, 108, 0.1); color: #f5576c; border: 1px solid rgba(245, 87, 108, 0.3);">--</span>
+                                    <span class="badge py-2 px-3 font-weight-bold" id="modalSexType"
+                                        style="font-size: 0.85rem; background-color: rgba(236, 72, 153, 0.1); color: #ec4899; border: 1px solid rgba(236, 72, 153, 0.3);">--</span>
                                 </div>
                                 <div>
                                     <small class="text-muted d-block mb-1 font-weight-bold">Position</small>
-                                    <span class="badge py-2 px-3 font-weight-bold" id="modalSexPosition" style="font-size: 0.85rem; background-color: rgba(111, 58, 117, 0.1); color: #6f3a75; border: 1px solid rgba(111, 58, 117, 0.3);">--</span>
+                                    <span class="badge py-2 px-3 font-weight-bold" id="modalSexPosition"
+                                        style="font-size: 0.85rem; background-color: rgba(111, 58, 117, 0.1); color: #6f3a75; border: 1px solid rgba(111, 58, 117, 0.3);">--</span>
                                 </div>
                                 <div>
                                     <small class="text-muted d-block mb-1 font-weight-bold">Notes</small>
-                                    <p class="mb-0 text-dark-emphasis small bg-body p-2 rounded border" id="modalSexNotes" style="white-space: pre-wrap; min-height: 40px;">--</p>
+                                    <p class="mb-0 text-dark-emphasis small bg-body p-2 rounded border"
+                                        id="modalSexNotes" style="white-space: pre-wrap; min-height: 40px;">--</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Column 2: Cycle & Fertility Context -->
                     <div class="col-12 col-md-6">
-                        <div class="p-3 rounded h-100" style="background-color: var(--metric-bg); border: 1px solid var(--border-color);">
+                        <div class="p-3 rounded h-100"
+                            style="background-color: var(--metric-bg); border: 1px solid var(--border-color);">
                             <h6 class="fw-bold mb-3 text-primary d-flex align-items-center">
                                 <i class="fas fa-chart-line me-2 fs-5"></i>Cycle Context
                             </h6>
                             <div class="d-flex flex-column gap-3">
                                 <div>
                                     <small class="text-muted d-block mb-1 font-weight-bold">Cycle Phase</small>
-                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle py-2 px-3 font-weight-bold" id="modalSexPhase" style="font-size: 0.85rem;">--</span>
+                                    <span
+                                        class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle py-2 px-3 font-weight-bold"
+                                        id="modalSexPhase" style="font-size: 0.85rem;">--</span>
                                 </div>
                                 <div>
-                                    <small class="text-muted d-block mb-1 font-weight-bold" id="modalSexProbLabel">Period Probability</small>
+                                    <small class="text-muted d-block mb-1 font-weight-bold"
+                                        id="modalSexProbLabel">Period Probability</small>
                                     <div class="d-flex align-items-center gap-2 mt-1">
-                                        <div class="progress flex-grow-1" style="height: 8px; background-color: var(--border-color);">
-                                            <div class="progress-bar bg-primary" id="modalSexProbBar" role="progressbar" style="width: 0%;"></div>
+                                        <div class="progress flex-grow-1"
+                                            style="height: 8px; background-color: var(--border-color);">
+                                            <div class="progress-bar bg-primary" id="modalSexProbBar" role="progressbar"
+                                                style="width: 0%;"></div>
                                         </div>
-                                        <strong class="text-dark-emphasis" id="modalSexProbScore" style="font-size: 0.9rem; min-width: 40px; text-align: right;">0%</strong>
+                                        <strong class="text-dark-emphasis" id="modalSexProbScore"
+                                            style="font-size: 0.9rem; min-width: 40px; text-align: right;">0%</strong>
                                     </div>
                                 </div>
                                 <div>
                                     <small class="text-muted d-block mb-1 font-weight-bold">Pregnancy Likelihood</small>
                                     <div class="d-flex align-items-center gap-2 mt-1">
-                                        <div class="progress flex-grow-1" style="height: 8px; background-color: var(--border-color);">
-                                            <div class="progress-bar bg-success" id="modalSexPregBar" role="progressbar" style="width: 0%;"></div>
+                                        <div class="progress flex-grow-1"
+                                            style="height: 8px; background-color: var(--border-color);">
+                                            <div class="progress-bar bg-success" id="modalSexPregBar" role="progressbar"
+                                                style="width: 0%;"></div>
                                         </div>
-                                        <strong class="text-dark-emphasis" id="modalSexPregLabel" style="font-size: 0.9rem; min-width: 40px; text-align: right;">Low (0%)</strong>
+                                        <strong class="text-dark-emphasis" id="modalSexPregLabel"
+                                            style="font-size: 0.9rem; min-width: 40px; text-align: right;">Low
+                                            (0%)</strong>
                                     </div>
                                 </div>
-                                <div class="mt-2 p-2 bg-body rounded border text-muted" style="font-size: 0.72rem; line-height: 1.35;">
-                                    <i class="fas fa-info-circle text-primary me-1"></i> These stats reflect cycle predictions calculated for this specific date.
+                                <div class="mt-2 p-2 bg-body rounded border text-muted"
+                                    style="font-size: 0.72rem; line-height: 1.35;">
+                                    <i class="fas fa-info-circle text-primary me-1"></i> These stats reflect cycle
+                                    predictions calculated for this specific date.
                                 </div>
                             </div>
                         </div>
@@ -1592,3 +1661,4 @@ document.addEventListener('DOMContentLoaded', function () {
     </div>
 </div>
 {% endblock %}
+

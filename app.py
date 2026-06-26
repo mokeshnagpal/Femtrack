@@ -80,9 +80,8 @@ DEFAULT_SEX_POSITIONS = [
 def build_sex_options(user_data):
     """Build sex-entry option lists from defaults plus user customizations."""
     user_data = user_data or {}
-    custom_types = user_data.get('custom_sex_types', [])
     custom_positions = user_data.get('custom_sex_positions', [])
-    sex_types = list(dict.fromkeys(DEFAULT_SEX_TYPES + custom_types))
+    sex_types = DEFAULT_SEX_TYPES
     positions = list(dict.fromkeys(DEFAULT_SEX_POSITIONS + custom_positions))
     return sex_types, positions
 
@@ -1363,20 +1362,7 @@ def customize():
             flash('User not found')
             return redirect('/customize')
 
-        if action == 'add_sex_type':
-            option = request.form.get('sex_type_name', '').strip()
-            if not option:
-                flash('Sex type is required')
-                return redirect('/customize')
-            custom_sex_types = user_data.get('custom_sex_types', [])
-            if option in DEFAULT_SEX_TYPES or option in custom_sex_types:
-                flash('Sex type already exists')
-                return redirect('/customize')
-            custom_sex_types.append(option)
-            update_user_settings(user_email, {'custom_sex_types': custom_sex_types})
-            flash('Sex type added successfully')
-
-        elif action == 'add_sex_position':
+        if action == 'add_sex_position':
             option = request.form.get('sex_position_name', '').strip()
             if not option:
                 flash('Position is required')
@@ -1388,28 +1374,6 @@ def customize():
             custom_sex_positions.append(option)
             update_user_settings(user_email, {'custom_sex_positions': custom_sex_positions})
             flash('Position added successfully')
-
-        elif action == 'edit_sex_type':
-            old_option = request.form.get('old_sex_type_name', '').strip()
-            new_option = request.form.get('sex_type_name', '').strip()
-            custom_sex_types = user_data.get('custom_sex_types', [])
-            if old_option not in custom_sex_types:
-                flash('Only custom sex types can be edited')
-                return redirect('/customize')
-            if not new_option:
-                flash('Sex type is required')
-                return redirect('/customize')
-            if new_option != old_option and (new_option in DEFAULT_SEX_TYPES or new_option in custom_sex_types):
-                flash('Sex type already exists')
-                return redirect('/customize')
-            custom_sex_types = [new_option if item == old_option else item for item in custom_sex_types]
-            updates = {'custom_sex_types': custom_sex_types}
-            defaults = dict(user_data.get('defaults') or {})
-            if defaults.get('sex_type') == old_option:
-                defaults['sex_type'] = new_option
-                updates['defaults'] = defaults
-            update_user_settings(user_email, updates)
-            flash('Sex type updated successfully')
 
         elif action == 'edit_sex_position':
             old_option = request.form.get('old_sex_position_name', '').strip()
@@ -1432,17 +1396,6 @@ def customize():
                 updates['defaults'] = defaults
             update_user_settings(user_email, updates)
             flash('Position updated successfully')
-
-        elif action == 'delete_sex_type':
-            option = request.form.get('sex_type_name', '').strip()
-            custom_sex_types = [item for item in user_data.get('custom_sex_types', []) if item != option]
-            updates = {'custom_sex_types': custom_sex_types}
-            defaults = dict(user_data.get('defaults') or {})
-            if defaults.get('sex_type') == option:
-                defaults['sex_type'] = ''
-                updates['defaults'] = defaults
-            update_user_settings(user_email, updates)
-            flash('Sex type removed successfully')
 
         elif action == 'delete_sex_position':
             option = request.form.get('sex_position_name', '').strip()

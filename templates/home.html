@@ -1,11 +1,11 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% import "macros.html" as components %}
 
 {% block title %}Home - Femtrack{% endblock %}
 
 {% block content %}
 <div class="row g-4 align-items-stretch mb-4">
-    <div class="col-lg-5">
+    <div class="col-12">
         {% if not is_view_only %}
         <div class="home-hero-panel h-100">
             <span class="home-eyebrow">Femtrack</span>
@@ -20,7 +20,7 @@
         </div>
         {% endif %}
     </div>
-    <div class="col-lg-7">
+    <div class="col-12">
         <div class="home-tip-panel h-100 d-flex align-items-center">
             <div>
                 <div class="home-note-heading d-flex align-items-center gap-2">
@@ -70,3 +70,4 @@
     </div>
 </div>
 {% endblock %}
+
