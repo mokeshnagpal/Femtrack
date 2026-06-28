@@ -19,11 +19,11 @@
     <nav class="navbar navbar-expand-md navbar-dark bg-primary sticky-top">
         <div class="container-fluid">
             <a class="navbar-brand" href="/">
-                <img src="{{ url_for('static', filename='logo/femtrack_logo.png') }}" alt="Logo"
-                    class="navbar-logo" onerror="this.style.display='none'">
+                <img src="{{ url_for('static', filename='logo/femtrack_logo.png') }}" alt="Logo" class="navbar-logo"
+                    onerror="this.style.display='none'">
                 <i class="fas fa-lotus"></i>
             </a>
-            
+
             <div class="d-flex align-items-center ms-auto order-md-last">
                 <button class="btn nav-btn me-2" id="themeToggle" title="Toggle dark/light mode"
                     style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);">
@@ -43,48 +43,62 @@
                     {% if session.get('user') %}
                     <!-- Full navigation for logged-in users -->
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/"><i class="fas fa-home"></i> Home</a>
+                        <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/"><i
+                                class="fas fa-home"></i> Home</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path.startswith('/entries') or request.path.startswith('/input') %}active{% endif %}" href="/entries"><i class="fas fa-list"></i> Menses</a>
+                        <a class="nav-link {% if request.path.startswith('/entries') or request.path.startswith('/input') %}active{% endif %}"
+                            href="/entries"><i class="fas fa-list"></i> Menses</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path.startswith('/sex-entries') %}active{% endif %}" href="/sex-entries"><i class="fas fa-heart"></i> Sex Entries</a>
+                        <a class="nav-link {% if request.path.startswith('/sex-entries') %}active{% endif %}"
+                            href="/sex-entries"><i class="fas fa-heart"></i> Sex Entries</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path.startswith('/weight-height') %}active{% endif %}" href="/weight-height"><i class="fas fa-weight"></i> Weight & Height</a>
+                        <a class="nav-link {% if request.path.startswith('/weight-height') %}active{% endif %}"
+                            href="/weight-height"><i class="fas fa-weight"></i> Weight & Height</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path.startswith('/analytics') %}active{% endif %}" href="/analytics"><i class="fas fa-chart-line"></i> Analytics</a>
+                        <a class="nav-link {% if request.path.startswith('/analytics') %}active{% endif %}"
+                            href="/analytics"><i class="fas fa-chart-line"></i> Analytics</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path.startswith('/forecast') %}active{% endif %}" href="/forecast"><i class="fas fa-wand-magic-sparkles"></i> Forecast</a>
+                        <a class="nav-link {% if request.path.startswith('/forecast') %}active{% endif %}"
+                            href="/forecast"><i class="fas fa-wand-magic-sparkles"></i> Forecast</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path.startswith('/customize') %}active{% endif %}" href="/customize"><i class="fas fa-sliders-h"></i> Customize</a>
+                        <a class="nav-link {% if request.path.startswith('/customize') %}active{% endif %}"
+                            href="/customize"><i class="fas fa-sliders-h"></i> Customize</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path.startswith('/settings') %}active{% endif %}" href="/settings"><i class="fas fa-cog"></i> Settings</a>
+                        <a class="nav-link {% if request.path.startswith('/settings') %}active{% endif %}"
+                            href="/settings"><i class="fas fa-cog"></i> Settings</a>
                     </li>
                     {% elif session.get('view_only') %}
                     <!-- Limited navigation for view-only users -->
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/"><i class="fas fa-home"></i> Home</a>
+                        <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/"><i
+                                class="fas fa-home"></i> Home</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path.startswith('/entries') or request.path.startswith('/input') %}active{% endif %}" href="/entries"><i class="fas fa-list"></i> Menses</a>
+                        <a class="nav-link {% if request.path.startswith('/entries') or request.path.startswith('/input') %}active{% endif %}"
+                            href="/entries"><i class="fas fa-list"></i> Menses</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path.startswith('/sex-entries') %}active{% endif %}" href="/sex-entries"><i class="fas fa-heart"></i> Sex Entries</a>
+                        <a class="nav-link {% if request.path.startswith('/sex-entries') %}active{% endif %}"
+                            href="/sex-entries"><i class="fas fa-heart"></i> Sex Entries</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path.startswith('/weight-height') %}active{% endif %}" href="/weight-height"><i class="fas fa-weight"></i> Weight & Height</a>
+                        <a class="nav-link {% if request.path.startswith('/weight-height') %}active{% endif %}"
+                            href="/weight-height"><i class="fas fa-weight"></i> Weight & Height</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path.startswith('/analytics') %}active{% endif %}" href="/analytics"><i class="fas fa-chart-line"></i> Analytics</a>
+                        <a class="nav-link {% if request.path.startswith('/analytics') %}active{% endif %}"
+                            href="/analytics"><i class="fas fa-chart-line"></i> Analytics</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path.startswith('/forecast') %}active{% endif %}" href="/forecast"><i class="fas fa-wand-magic-sparkles"></i> Forecast</a>
+                        <a class="nav-link {% if request.path.startswith('/forecast') %}active{% endif %}"
+                            href="/forecast"><i class="fas fa-wand-magic-sparkles"></i> Forecast</a>
                     </li>
                     {% endif %}
                 </ul>
@@ -263,10 +277,3 @@
 </body>
 
 </html>
-
-
-
-
-
-
-
