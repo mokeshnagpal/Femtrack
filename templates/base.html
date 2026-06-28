@@ -220,7 +220,45 @@
         document.querySelectorAll('.custom-dropdown-container select').forEach(select => {
             syncCustomDropdown(select.id);
             select.addEventListener('change', () => syncCustomDropdown(select.id));
-        });    </script>
+        });
+
+        // Close mobile navbar when clicking outside
+        document.addEventListener('click', function (event) {
+            const navbarNav = document.getElementById('navbarNav');
+            const toggler = document.querySelector('.navbar-toggler');
+            if (navbarNav && navbarNav.classList.contains('show')) {
+                if (!navbarNav.contains(event.target) && (!toggler || !toggler.contains(event.target))) {
+                    const bsCollapse = bootstrap.Collapse.getOrCreateInstance(navbarNav);
+                    bsCollapse.hide();
+                }
+            }
+        });
+
+        // Toggle password visibility
+        document.addEventListener('click', function (event) {
+            const toggleBtn = event.target.closest('.toggle-password');
+            if (toggleBtn) {
+                const targetId = toggleBtn.getAttribute('data-target');
+                const passwordInput = document.getElementById(targetId);
+                if (passwordInput) {
+                    const icon = toggleBtn.querySelector('i');
+                    if (passwordInput.type === 'password') {
+                        passwordInput.type = 'text';
+                        if (icon) {
+                            icon.classList.remove('fa-eye');
+                            icon.classList.add('fa-eye-slash');
+                        }
+                    } else {
+                        passwordInput.type = 'password';
+                        if (icon) {
+                            icon.classList.remove('fa-eye-slash');
+                            icon.classList.add('fa-eye');
+                        }
+                    }
+                }
+            }
+        });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 

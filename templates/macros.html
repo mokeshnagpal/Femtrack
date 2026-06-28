@@ -1,4 +1,4 @@
-﻿{# templates/macros.html #}
+{# templates/macros.html #}
 
 {% macro card(title, icon=None, class="", header_class="", id="") %}
 <div class="card {{ class }}" {% if id %}id="{{ id }}"{% endif %}>
@@ -100,12 +100,23 @@
         {% if icon %}<i class="{{ icon }} me-1"></i>{% endif %}{{ label }}
     </label>
     {% endif %}
+    {% if type == "password" %}
+    <div class="input-group">
+        <input type="password" class="form-control" id="{{ input_id }}" name="{{ name }}"
+               placeholder="{{ placeholder }}" {% if required %}required{% endif %}
+               value="{{ value }}">
+        <button class="btn btn-outline-secondary toggle-password" type="button" data-target="{{ input_id }}" title="Toggle password visibility">
+            <i class="fas fa-eye"></i>
+        </button>
+    </div>
+    {% else %}
     <input type="{{ type }}" class="form-control" id="{{ input_id }}" name="{{ name }}"
            placeholder="{{ placeholder }}" {% if required %}required{% endif %}
            {% if min is not none %}min="{{ min }}"{% endif %}
            {% if max is not none %}max="{{ max }}"{% endif %}
            {% if step is not none %}step="{{ step }}"{% endif %}
            value="{{ value }}">
+    {% endif %}
 </div>
 {% endmacro %}
 
