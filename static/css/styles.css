@@ -36,7 +36,8 @@ html[data-bs-theme="dark"] {
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
-html, body {
+html,
+body {
     height: 100%;
 }
 
@@ -190,7 +191,8 @@ body {
 }
 
 /* Forms */
-.form-control, .form-select {
+.form-control,
+.form-select {
     border-radius: 8px;
     border: 1.5px solid var(--border-color);
     background-color: var(--card-bg);
@@ -199,7 +201,8 @@ body {
     padding: 0.75rem 1rem;
 }
 
-.form-control:focus, .form-select:focus {
+.form-control:focus,
+.form-select:focus {
     border-color: var(--primary-color);
     background-color: var(--card-bg);
     color: var(--text-color);
@@ -531,7 +534,8 @@ footer {
         font-size: 0.9rem;
     }
 
-    .form-control, .form-select {
+    .form-control,
+    .form-select {
         font-size: 0.95rem;
         padding: 0.6rem 0.75rem;
     }
@@ -562,7 +566,9 @@ footer {
         font-size: 1.1rem;
     }
 
-    h4, h5, h6 {
+    h4,
+    h5,
+    h6 {
         font-size: 1rem;
     }
 }
@@ -596,12 +602,18 @@ footer {
         margin-bottom: 0 !important;
     }
 
-    .form-control, .form-select {
+    .input-group .btn {
+        width: auto !important;
+        margin-bottom: 0 !important;
+    }
+
+    .form-control,
+    .form-select {
         font-size: 0.9rem;
         padding: 0.5rem 0.75rem;
     }
 
-    .row > [class*="col-"] {
+    .row>[class*="col-"] {
         margin-bottom: 0.75rem;
     }
 
@@ -636,7 +648,9 @@ footer {
 
 /* Extra small devices */
 @media (max-width: 360px) {
-    .card-header h4, .card-header h5 {
+
+    .card-header h4,
+    .card-header h5 {
         font-size: 1rem;
         margin: 0;
     }
@@ -687,6 +701,7 @@ html[data-bs-theme="dark"] .text-dark-emphasis {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -701,6 +716,7 @@ html[data-bs-theme="dark"] .text-dark-emphasis {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -740,6 +756,7 @@ html[data-bs-theme="dark"] .text-dark-emphasis {
         opacity: 0;
         transform: translateY(-10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -759,7 +776,12 @@ html[data-bs-theme="dark"] .alert-danger .alert-heading {
 
 /* Print styles */
 @media print {
-    .navbar, footer, .btn, button, .form-control {
+
+    .navbar,
+    footer,
+    .btn,
+    button,
+    .form-control {
         display: none !important;
     }
 
@@ -927,12 +949,32 @@ html[data-bs-theme="dark"] {
     background: transparent !important;
 }
 
-.btn-outline-secondary {
+.btn-outline-primary {
+    color: var(--primary-color) !important;
+}
+
+.btn-outline-primary:hover {
+    background: var(--primary-gradient) !important;
+    color: #ffffff !important;
+}
+
+.btn-outline-secondary,
+.btn-outline-info {
     color: var(--secondary-color) !important;
 }
 
-.btn-outline-secondary:hover {
+.btn-outline-secondary:hover,
+.btn-outline-info:hover {
     background: var(--secondary-gradient) !important;
+    color: #ffffff !important;
+}
+
+.btn-outline-danger {
+    color: #dc3545 !important;
+}
+
+.btn-outline-danger:hover {
+    background: #dc3545 !important;
     color: #ffffff !important;
 }
 
@@ -1126,7 +1168,7 @@ html[data-bs-theme="dark"] {
     padding-bottom: 0;
 }
 
-.navbar > .container-fluid {
+.navbar>.container-fluid {
     padding-left: 0.25rem;
     padding-right: 0.35rem;
 }
@@ -1141,10 +1183,11 @@ html[data-bs-theme="dark"] {
 
 .navbar-logo {
     height: 56px;
-    width: 196px;
+    width: 140px;
     max-width: 46vw;
     object-fit: contain;
     margin: 0;
+    padding: 7px 0;
 }
 
 .navbar .nav-link {
@@ -1199,7 +1242,7 @@ html[data-bs-theme="dark"] {
     width: 100%;
 }
 
-.card-body.p-0 > .table-pagination {
+.card-body.p-0>.table-pagination {
     padding: 0 1.5rem 1rem;
 }
 
@@ -1257,3 +1300,15 @@ html[data-bs-theme="dark"] {
     min-height: 50px;
 }
 
+/* Forgot password link colors to match theme */
+.forgot-password-link {
+    color: var(--primary-color) !important;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.forgot-password-link:hover {
+    color: var(--secondary-color) !important;
+    text-decoration: underline !important;
+}
