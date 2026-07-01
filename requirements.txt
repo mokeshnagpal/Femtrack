@@ -1,3 +1,5 @@
+MarkupSafe
+gunicorn
 Pillow
 Flask
 Werkzeug
@@ -6,5 +8,3 @@ google-cloud-firestore
 bcrypt
 python-dotenv
 Jinja2
-MarkupSafe
-gunicorn
